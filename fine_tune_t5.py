@@ -1,13 +1,20 @@
 # Import necessary libraries
+import os
+import random
+
 import accelerate
-from transformers import T5Tokenizer, T5ForConditionalGeneration, Trainer, TrainingArguments
+import transformers
+from transformers import T5Tokenizer, T5ForConditionalGeneration, HfArgumentParser
 from datasets import load_dataset
 from typing import Dict
 import torch
+import flags
+import numpy as np
+import wandb
 
 
 # Preprocess the data
-def preprocess_function(
+def tokenizer_function(
         examples: Dict[str, torch.Tensor],
 ) -> Dict[str, torch.Tensor]:
     """Preprocess the SST2 examples for the T5 model.
@@ -25,7 +32,8 @@ def preprocess_function(
         padding='max_length',
         max_length=512,
         truncation=True,
-        return_tensors="pt")['input_ids']}
+        return_tensors="pt",
+    )['input_ids']}
 
     # Labels are not preprocessed for the T5 model. model_inputs are returned as is
     outputs = ['positive' if example else 'negative' for example in examples['label']]
@@ -39,38 +47,171 @@ def preprocess_function(
     return results
 
 
+def compute_metrics(eval_pred: transformers.EvalPrediction):
+    """Compute the accuracy of the model.
+
+    Args:
+        eval_pred: A namedtuple containing the model predictions and labels.
+
+    Returns:
+        A dictionary containing the accuracy of the model.
+    """
+    predictions, labels = eval_pred
+    predictions: np.ndarray
+    labels: np.ndarray
+    metrics = {
+        "accuracy": (predictions == labels).astype(np.float32).mean().item(),
+    }
+    return
+
+
+def preprocess_logits_for_metrics(
+        logits: torch.Tensor,
+        labels: torch.Tensor,
+) -> torch.Tensor:
+    """
+    Original Trainer may have a memory leak.
+
+    This is a workaround to avoid storing too many tensors that are not needed.
+    """
+    if isinstance(logits, tuple):
+        # Depending on the model and config, logits may contain extra tensors,
+        # like past_key_values, but logits always come first
+        if len(logits) == 3:
+            _, logits, _ = logits
+        logits = logits[1]
+    return logits.argmax(dim=-1)
+
+
+def set_seed(seed: int):
+    """Set the seed for reproducibility."""
+    random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    transformers.set_seed(seed)
+
+
 if __name__ == "__main__":
 
-    # Load the T5 model and tokenizer
-    model_name = 'google/t5-v1_1-small'
-    tokenizer = T5Tokenizer.from_pretrained(model_name)
-    model = T5ForConditionalGeneration.from_pretrained(model_name)
+    # Parse flags
+    parser = HfArgumentParser((flags.ModelArguments, flags.DataTrainingArguments, flags.TrainingArguments))
+    model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
-    # Load the SST2 dataset
-    dataset = load_dataset('glue', 'sst2')
+    accelerator = accelerate.Accelerator(
+        gradient_accumulation_steps=training_args.training_accumulation_steps,
+        log_with='wandb',
+    )
+
+    # Load the T5 model and tokenizer
+    tokenizer = T5Tokenizer.from_pretrained(model_args.tokenizer_name)
+    model = T5ForConditionalGeneration.from_pretrained(model_args.model_name_or_path)
+
+    # Initialize W&B project
+    if accelerator.is_local_main_process:
+        wandb.init(
+            project='T5 Evaluation',
+            config={
+                'model_name': model_args.model_name_or_path,
+                'output_dir': training_args.output_dir,
+                'logging_dir': training_args.logging_dir,
+                'dataset_name': data_args.dataset_name,
+                'batch_size': training_args.per_device_train_batch_size,
+                'learning_rate': training_args.learning_rate,
+                'num_train_epochs': training_args.num_train_epochs,
+                'seed': training_args.seed,
+                'optimizer': training_args.optimizer,
+                'warmup_ratio': training_args.warmup_ratio,
+                'weight_decay': training_args.weight_decay,
+                'lr_scheduler_type': training_args.lr_scheduler_type,
+            },
+        )
+        wandb.watch(model, log='all')
+
+    # Load the appropriate dataset
+    dataset = load_dataset(data_args.benchmark, data_args.dataset_name)
 
     # Preprocess the datasets
-    encoded_dataset = dataset.map(preprocess_function, batch_size=4, batched=True)
+    encoded_dataset = dataset.map(
+        tokenizer_function,  # Tokenizes the dataset
+        batch_size=training_args.per_device_train_batch_size,
+        batched=True,
+    )
+
+    # Calculate warmup steps from warmup ratio
+    warmup_steps = (
+        int(
+            training_args.warmup_ratio *
+            training_args.num_train_epochs *
+            len(encoded_dataset['train']) /
+            training_args.per_device_train_batch_size
+        )
+    )
 
     # Define the training parameters
-    training_args = TrainingArguments(
-        output_dir='./results',
-        num_train_epochs=3,
-        per_device_train_batch_size=4,
-        per_device_eval_batch_size=16,
-        warmup_steps=500,
-        weight_decay=0.01,
-        logging_dir='./logs',
+    trainer_arguments = transformers.Seq2SeqTrainingArguments(
+        # Set up directories
+        output_dir=training_args.output_dir,
+        logging_dir=training_args.logging_dir,
+
+        # Optimization parameters
+        optim=training_args.optimizer,
+        learning_rate=training_args.learning_rate,
+        lr_scheduler_type=training_args.lr_scheduler_type,
+        auto_find_batch_size=True,  # Automatically find the batch size that fits on the GPU
+        warmup_steps=warmup_steps,
+        weight_decay=training_args.weight_decay,
+        gradient_accumulation_steps=training_args.training_accumulation_steps,
+        eval_accumulation_steps=training_args.eval_accumulation_steps,
+
+        # Training strategy to adopt
+        logging_strategy="steps",
+        evaluation_strategy="steps",
+        save_strategy="steps",
+        num_train_epochs=training_args.num_train_epochs,
+        load_best_model_at_end=True,
+        metric_for_best_model="accuracy",
+        greater_is_better=True,
+
+        # Frequency of training callbacks (logging, evaluation, checkpointing, etc.)
+        logging_steps=training_args.logging_steps,
+        eval_steps=training_args.eval_steps,
+        save_steps=training_args.save_steps,
     )
 
     # Train the model
-    trainer = Trainer(
+    trainer = transformers.Seq2SeqTrainer(
         model=model,
-        args=training_args,
+        args=trainer_arguments,
+        compute_metrics=compute_metrics,
         train_dataset=encoded_dataset['train'],
         eval_dataset=encoded_dataset['validation'],
+        preprocess_logits_for_metrics=preprocess_logits_for_metrics,
+        callbacks=[
+            transformers.trainer_callback.EarlyStoppingCallback(
+                early_stopping_patience=training_args.patience)
+        ],
     )
-    trainer.train()
+
+    if model_args.model_name_or_path is not None:
+        if os.path.isdir(model_args.model_name_or_path):
+            resume_from_checkpoint = model_args.model_name_or_path
+        else:
+            resume_from_checkpoint = None
+    else:
+        resume_from_checkpoint = None
+
+    trainer.train(
+        resume_from_checkpoint=resume_from_checkpoint,
+    )
 
     # Evaluate the model
-    trainer.evaluate()
+    trainer.evaluate(
+        eval_dataset=encoded_dataset['validation'],
+        metric_key_prefix='validation',
+    )
+    trainer.evaluate(
+        eval_dataset=encoded_dataset['test'],
+        metric_key_prefix='test',
+    )
