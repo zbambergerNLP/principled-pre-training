@@ -1,20 +1,15 @@
 # Import necessary libraries
+import accelerate
 from transformers import T5Tokenizer, T5ForConditionalGeneration, Trainer, TrainingArguments
 from datasets import load_dataset
 from typing import Dict
 import torch
 
-# Load the T5 model and tokenizer
-model_name = 'google/t5-v1_1-small'
-tokenizer = T5Tokenizer.from_pretrained(model_name)
-model = T5ForConditionalGeneration.from_pretrained(model_name)
-
-# Load the SST2 dataset
-dataset = load_dataset('glue', 'sst2')
-
 
 # Preprocess the data
-def preprocess_function(examples: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+def preprocess_function(
+        examples: Dict[str, torch.Tensor],
+) -> Dict[str, torch.Tensor]:
     """Preprocess the SST2 examples for the T5 model.
 
     Args:
@@ -44,28 +39,38 @@ def preprocess_function(examples: Dict[str, torch.Tensor]) -> Dict[str, torch.Te
     return results
 
 
-# Preprocess the datasets
-encoded_dataset = dataset.map(preprocess_function, batch_size=4, batched=True)
+if __name__ == "__main__":
 
-# Define the training parameters
-training_args = TrainingArguments(
-    output_dir='./results',
-    num_train_epochs=3,
-    per_device_train_batch_size=4,
-    per_device_eval_batch_size=16,
-    warmup_steps=500,
-    weight_decay=0.01,
-    logging_dir='./logs',
-)
+    # Load the T5 model and tokenizer
+    model_name = 'google/t5-v1_1-small'
+    tokenizer = T5Tokenizer.from_pretrained(model_name)
+    model = T5ForConditionalGeneration.from_pretrained(model_name)
 
-# Train the model
-trainer = Trainer(
-    model=model,
-    args=training_args,
-    train_dataset=encoded_dataset['train'],
-    eval_dataset=encoded_dataset['validation'],
-)
-trainer.train()
+    # Load the SST2 dataset
+    dataset = load_dataset('glue', 'sst2')
 
-# Evaluate the model
-trainer.evaluate()
+    # Preprocess the datasets
+    encoded_dataset = dataset.map(preprocess_function, batch_size=4, batched=True)
+
+    # Define the training parameters
+    training_args = TrainingArguments(
+        output_dir='./results',
+        num_train_epochs=3,
+        per_device_train_batch_size=4,
+        per_device_eval_batch_size=16,
+        warmup_steps=500,
+        weight_decay=0.01,
+        logging_dir='./logs',
+    )
+
+    # Train the model
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=encoded_dataset['train'],
+        eval_dataset=encoded_dataset['validation'],
+    )
+    trainer.train()
+
+    # Evaluate the model
+    trainer.evaluate()
