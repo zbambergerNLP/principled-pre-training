@@ -1,9 +1,7 @@
 # Create flags in order to run fine_tune_bert.py and fine_tune_t5.py
 
 from dataclasses import dataclass, field
-from typing import (
-    Optional, List, Iterable,
-)
+from typing import Optional
 
 
 @dataclass
@@ -48,7 +46,7 @@ class TrainingArguments:
     num_train_epochs: int = field(
         default=3, metadata={"help": "Total number of training epochs to perform."}
     )
-    learning_rate: float = field(default=1e-5, metadata={"help": "The initial learning rate for AdamW."})
+    learning_rate: float = field(default=1e-3, metadata={"help": "The initial learning rate for AdamW."})
     weight_decay: float = field(default=0.0, metadata={"help": "Weight decay for AdamW if we apply some."})
     warmup_ratio: float = field(default=0.1, metadata={"help": "The ratio of warmup steps to total training steps."})
     patience: int = field(default=3, metadata={"help": "The number of epochs to wait for the validation loss to"
@@ -61,7 +59,7 @@ class TrainingArguments:
         default=4, metadata={"help": "Number of training steps to accumulate before performing backward pass."}
     )
     eval_steps: int = field(
-        default=20,  # TODO: change to 200
+        default=200,
         metadata={"help": "Number of eval steps to perform before logging metrics."}
     )
     save_steps: int = field(default=1_000, metadata={"help": "Save checkpoint every X updates steps."})

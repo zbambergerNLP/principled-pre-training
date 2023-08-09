@@ -11,6 +11,7 @@ import torch
 import flags
 import numpy as np
 import wandb
+import sklearn
 
 
 # Preprocess the data
@@ -59,10 +60,31 @@ def compute_metrics(eval_pred: transformers.EvalPrediction):
     predictions, labels = eval_pred
     predictions: np.ndarray
     labels: np.ndarray
+
+    # Flatten the predictions and labels
+    predictions = predictions.flatten()
+    labels = labels.flatten()
+
     metrics = {
-        "accuracy": (predictions == labels).astype(np.float32).mean().item(),
+        "accuracy": sklearn.metrics.accuracy_score(
+            y_true=labels,
+            y_pred=predictions,
+        ),
+        # TODO: Add the metrics below, but note that predictions are multi-class since the model is seq2seq.
+        # "precision": sklearn.metrics.precision_score(
+        #     y_true=labels,
+        #     y_pred=predictions,
+        # ),
+        # "recall": sklearn.metrics.recall_score(
+        #     y_true=labels,
+        #     y_pred=predictions,
+        # ),
+        # "f1": sklearn.metrics.f1_score(
+        #     y_true=labels,
+        #     y_pred=predictions,
+        # ),
     }
-    return
+    return metrics
 
 
 def preprocess_logits_for_metrics(
@@ -77,9 +99,7 @@ def preprocess_logits_for_metrics(
     if isinstance(logits, tuple):
         # Depending on the model and config, logits may contain extra tensors,
         # like past_key_values, but logits always come first
-        if len(logits) == 3:
-            _, logits, _ = logits
-        logits = logits[1]
+        logits = logits[0]
     return logits.argmax(dim=-1)
 
 
@@ -149,6 +169,7 @@ if __name__ == "__main__":
         )
     )
 
+    # TODO: Ignore padding tokens when computing metrics and loss
     # Define the training parameters
     trainer_arguments = transformers.Seq2SeqTrainingArguments(
         # Set up directories
