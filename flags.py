@@ -46,7 +46,7 @@ class TrainingArguments:
     num_train_epochs: int = field(
         default=3, metadata={"help": "Total number of training epochs to perform."}
     )
-    learning_rate: float = field(default=1e-3, metadata={"help": "The initial learning rate for AdamW."})
+    learning_rate: float = field(default=3e-4, metadata={"help": "The initial learning rate for AdamW."})
     weight_decay: float = field(default=0.0, metadata={"help": "Weight decay for AdamW if we apply some."})
     warmup_ratio: float = field(default=0.1, metadata={"help": "The ratio of warmup steps to total training steps."})
     patience: int = field(default=3, metadata={"help": "The number of epochs to wait for the validation loss to"

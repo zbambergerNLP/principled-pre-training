@@ -1,7 +1,6 @@
 # Import necessary libraries
 import os
 import random
-
 import accelerate
 import transformers
 from transformers import T5Tokenizer, T5ForConditionalGeneration, HfArgumentParser
@@ -38,17 +37,23 @@ def tokenizer_function(
 
     # Labels are not preprocessed for the T5 model. model_inputs are returned as is
     outputs = ['positive' if example else 'negative' for example in examples['label']]
-    results['labels'] = tokenizer(
+    labels = tokenizer(
         outputs,
         padding='max_length',
         max_length=512,
         truncation=True,
         return_tensors="pt",
     )['input_ids']
+
+    # Replace the padding token with -100 to ignore it for loss computation
+    labels[labels == tokenizer.pad_token_id] = -100
+    results['labels'] = labels
     return results
 
 
-def compute_metrics(eval_pred: transformers.EvalPrediction):
+def compute_metrics(
+        eval_pred: transformers.EvalPrediction,
+) -> Dict[str, float]:
     """Compute the accuracy of the model.
 
     Args:
@@ -61,28 +66,31 @@ def compute_metrics(eval_pred: transformers.EvalPrediction):
     predictions: np.ndarray
     labels: np.ndarray
 
-    # Flatten the predictions and labels
-    predictions = predictions.flatten()
-    labels = labels.flatten()
+    # Flatten the predictions and labels. Ignore the padding tokens (-100)
+    # TODO: Ignore EOS tokens as well
+    predictions = predictions[labels != -100].flatten()
+    labels = labels[labels != -100].flatten()
 
     metrics = {
-        "accuracy": sklearn.metrics.accuracy_score(
+        "eval_accuracy": sklearn.metrics.accuracy_score(
             y_true=labels,
             y_pred=predictions,
         ),
-        # TODO: Add the metrics below, but note that predictions are multi-class since the model is seq2seq.
-        # "precision": sklearn.metrics.precision_score(
-        #     y_true=labels,
-        #     y_pred=predictions,
-        # ),
-        # "recall": sklearn.metrics.recall_score(
-        #     y_true=labels,
-        #     y_pred=predictions,
-        # ),
-        # "f1": sklearn.metrics.f1_score(
-        #     y_true=labels,
-        #     y_pred=predictions,
-        # ),
+        "precision": sklearn.metrics.precision_score(
+            y_true=labels,
+            y_pred=predictions,
+            average='micro',
+        ),
+        "recall": sklearn.metrics.recall_score(
+            y_true=labels,
+            y_pred=predictions,
+            average='micro',
+        ),
+        "f1": sklearn.metrics.f1_score(
+            y_true=labels,
+            y_pred=predictions,
+            average='micro',
+        ),
     }
     return metrics
 
@@ -159,17 +167,6 @@ if __name__ == "__main__":
         batched=True,
     )
 
-    # Calculate warmup steps from warmup ratio
-    warmup_steps = (
-        int(
-            training_args.warmup_ratio *
-            training_args.num_train_epochs *
-            len(encoded_dataset['train']) /
-            training_args.per_device_train_batch_size
-        )
-    )
-
-    # TODO: Ignore padding tokens when computing metrics and loss
     # Define the training parameters
     trainer_arguments = transformers.Seq2SeqTrainingArguments(
         # Set up directories
@@ -181,7 +178,7 @@ if __name__ == "__main__":
         learning_rate=training_args.learning_rate,
         lr_scheduler_type=training_args.lr_scheduler_type,
         auto_find_batch_size=True,  # Automatically find the batch size that fits on the GPU
-        warmup_steps=warmup_steps,
+        warmup_ratio=training_args.warmup_ratio,
         weight_decay=training_args.weight_decay,
         gradient_accumulation_steps=training_args.training_accumulation_steps,
         eval_accumulation_steps=training_args.eval_accumulation_steps,
@@ -199,6 +196,7 @@ if __name__ == "__main__":
         logging_steps=training_args.logging_steps,
         eval_steps=training_args.eval_steps,
         save_steps=training_args.save_steps,
+        save_total_limit=3,  # Maintain a finite number of checkpoints # TODO: Make this a flag
     )
 
     # Train the model
@@ -226,13 +224,16 @@ if __name__ == "__main__":
     trainer.train(
         resume_from_checkpoint=resume_from_checkpoint,
     )
+    accelerator.print(f"Training completed. Saving model to {training_args.output_dir}")
 
     # Evaluate the model
-    trainer.evaluate(
+    validation_metrics = trainer.evaluate(
         eval_dataset=encoded_dataset['validation'],
         metric_key_prefix='validation',
     )
-    trainer.evaluate(
+    accelerator.print(f"Validation metrics: {validation_metrics}")
+    test_metrics = trainer.evaluate(
         eval_dataset=encoded_dataset['test'],
         metric_key_prefix='test',
     )
+    accelerator.print(f"Test metrics: {test_metrics}")
