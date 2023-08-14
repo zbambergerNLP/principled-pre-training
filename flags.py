@@ -35,7 +35,7 @@ class TrainingArguments:
     optimizer: Optional[str] = field(
         default="adamw_torch",
         metadata={
-            "help": "The optimizer to use. "
+            "help": "The optimizers to use. "
                     "Can be one of ['adamw_hf', 'adamw_torch', 'adamw_torch_fused', 'adamw_torch_xla', "
                     "'adamw_apex_fused', 'adafactor', 'adamw_bnb_8bit', 'adamw_anyprecision', 'sgd', 'adagrad']"
         }
@@ -111,7 +111,7 @@ class DataTrainingArguments:
                     "Can be one of ['squad', 'glue', 'super_glue', 'cnn_dailymail', 'xsum']."}
     )
     dataset_name: Optional[str] = field(
-        default="sst2",
+        default="cola",
         metadata={"help": "The name of the dataset to use (via the datasets library)."}
     )
     num_train_examples: Optional[int] = field(
