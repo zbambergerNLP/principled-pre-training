@@ -1,6 +1,8 @@
 # Import necessary libraries
 import os
 import random
+import typing
+from constants import DATASET_VALS
 import accelerate
 import transformers
 from transformers import T5Tokenizer, T5ForConditionalGeneration, HfArgumentParser
@@ -14,19 +16,29 @@ import sklearn
 
 
 # Preprocess the data
-def tokenizer_function(
-        examples: Dict[str, torch.Tensor],
+def tokenizer_function_one_input(
+        examples: Dict[str, typing.Any],
+        label_names: typing.Dict[int, str],
+        prefix: str,
+        text_column_name: str = 'sentence',
+        label_column_name: str = 'label',
 ) -> Dict[str, torch.Tensor]:
-    """Preprocess the SST2 examples for the T5 model.
+    """
+    Tokenizes batches of examples with only a single textual input for an encoder-decoder model.
 
     Args:
-        examples: A dictionary of torch.Tensor with the input data.
+        examples: A batch in the form of a dictionary mapping, mapping column names to their respective values.
+        label_names: A dictionary mapping from the integer representation of the label to the string representation.
+        prefix: The string prefix prepended to each textual example. (This is task specific)
+        text_column_name: Name of the column within the input dictionary that contains the text which will be tokenized.
+        label_column_name: Name of the column within the input dictionary that contains the labels which will be
+            tokenized.
 
     Returns:
-        A dictionary of torch.Tensor with the preprocessed data.
+        A dictionary containing the original mappings, as well as the mapping between model input names (e.g.,
+            `input_ids`) and model input values (e.g., the tensor corresponding to the input IDs of the model).
     """
-    # T5 expects the task to be in the input so prepend 'sst2 sentence: ' to each example
-    inputs = ['sst2 sentence: ' + sentence for sentence in examples['sentence']]
+    inputs = [f"{prefix}{sentence}" for sentence in examples[text_column_name]]
     results = {'input_ids': tokenizer(
         inputs,
         padding='max_length',
@@ -36,7 +48,7 @@ def tokenizer_function(
     )['input_ids']}
 
     # Labels are not preprocessed for the T5 model. model_inputs are returned as is
-    outputs = ['positive' if example else 'negative' for example in examples['label']]
+    outputs = [label_names[example] for example in examples[label_column_name]]
     labels = tokenizer(
         outputs,
         padding='max_length',
@@ -108,6 +120,7 @@ def preprocess_logits_for_metrics(
         # Depending on the model and config, logits may contain extra tensors,
         # like past_key_values, but logits always come first
         logits = logits[0]
+
     return logits.argmax(dim=-1)
 
 
@@ -160,9 +173,14 @@ if __name__ == "__main__":
     # Load the appropriate dataset
     dataset = load_dataset(data_args.benchmark, data_args.dataset_name)
 
+    wrapped_tokenizer_function_one_input = lambda examples: tokenizer_function_one_input(
+        examples=examples,
+        prefix=DATASET_VALS[data_args.benchmark][data_args.dataset_name]['prefix'],
+        label_names=DATASET_VALS[data_args.benchmark][data_args.dataset_name]['labels'])
+
     # Preprocess the datasets
     encoded_dataset = dataset.map(
-        tokenizer_function,  # Tokenizes the dataset
+        wrapped_tokenizer_function_one_input,  # Tokenizes the dataset
         batch_size=training_args.per_device_train_batch_size,
         batched=True,
     )
