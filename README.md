@@ -1,5 +1,18 @@
 # Training and Evaluation of Encoder-Decoder Language Models
 
+## Tips for environment setup (within PyCharm)
+
+* Create a new project in PyCharm, and use the Conda interpreter with Python 3.10.
+* Use PyCharm's VCS functionality to clone this repository into your project.
+* Install the required packages (see below).
+* Within your distributed computing server, set up a new conda virtual environment with Python 3.10 as you did locally.
+* Set up a deployment configuration in PyCharm such that local changes are automatically uploaded to the server.
+  * It is recommended to work with GitHub Co-Pilot for continued development locally. This is free for students!
+* On the remote server, install the required packages (see below).
+* Run `accelerate config` to set up the distributed training configuration as described below.
+* Run `wandb login` to set up the Weights and Biases integration as described below.
+* Run `accelerate launch fine_tune_t5.py` to start training.
+
 ## Setup and Installation
 
 First, install Anaconda or Miniconda. Then, create a new conda environment and install the required packages:
