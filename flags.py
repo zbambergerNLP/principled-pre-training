@@ -51,15 +51,17 @@ class TrainingArguments:
     warmup_ratio: float = field(default=0.1, metadata={"help": "The ratio of warmup steps to total training steps."})
     patience: int = field(default=3, metadata={"help": "The number of epochs to wait for the validation loss to"
                                                        " improve before early stopping."})
-    logging_steps: int = field(default=50, metadata={"help": "Log every X updates steps."})
+    logging_steps: int = field(default=20, metadata={"help": "Log every X updates steps."})
     eval_accumulation_steps: int = field(
         default=4, metadata={"help": "Number of eval steps to accumulate before performing backward pass."}
     )
     training_accumulation_steps: int = field(
         default=4, metadata={"help": "Number of training steps to accumulate before performing backward pass."}
     )
+    # TODO: Change the default value of eval_steps to None, when this value is set to None have it infer from
+    #  the number of steps when to perform an evaluation.
     eval_steps: int = field(
-        default=200,
+        default=50,
         metadata={"help": "Number of eval steps to perform before logging metrics."}
     )
     save_steps: int = field(default=1_000, metadata={"help": "Save checkpoint every X updates steps."})
@@ -111,7 +113,7 @@ class DataTrainingArguments:
                     "Can be one of ['squad', 'glue', 'super_glue', 'cnn_dailymail', 'xsum']."}
     )
     dataset_name: Optional[str] = field(
-        default="cola",
+        default="stsb",
         metadata={"help": "The name of the dataset to use (via the datasets library)."}
     )
     num_train_examples: Optional[int] = field(
