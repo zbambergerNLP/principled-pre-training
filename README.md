@@ -28,7 +28,7 @@ pip install wandb
 
 ### Distributed Training
 
-We currently support only single-node multi-GPU training. To train on a single node with 8 GPUs, run:
+We currently support only single-node multi-GPU training. To train on a single node with 4 GPUs, run:
 ```accelerate config```
 
 When prompted, select the following options:
