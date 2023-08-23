@@ -30,7 +30,7 @@ class TrainingArguments:
         default=4, metadata={"help": "Batch size per device during training."}
     )
     per_device_eval_batch_size: int = field(
-        default=64, metadata={"help": "Batch size per device for evaluation."}
+        default=8, metadata={"help": "Batch size per device for evaluation."}
     )
     optimizer: Optional[str] = field(
         default="adamw_torch",
@@ -69,6 +69,13 @@ class TrainingArguments:
     seed: int = field(
         default=42, metadata={"help": "The seed to use for reproducible training."}
     )
+    deepspeed: bool = field(
+        default=True, metadata={"help": "Whether to use deepspeed for training."}
+    )
+    deepspeed_config: Optional[str] = field(
+        default="zero_stage2_config.json", metadata={"help": "The path to the deepspeed config file."}
+    )
+    local_rank: int = field(default=-1, metadata={"help": "Local rank for distributed training on GPUs."})
 
 
 @dataclass
@@ -117,10 +124,10 @@ class DataTrainingArguments:
         metadata={"help": "The name of the dataset to use (via the datasets library)."}
     )
     num_train_examples: Optional[int] = field(
-        default=None, metadata={"help": "The number of training examples to use during training."}
+        default=5_000_000, metadata={"help": "The number of training examples to use during training."}
     )
     num_validation_examples: Optional[int] = field(
-        default=None, metadata={"help": "The number of validation examples to use during training."}
+        default=10_000, metadata={"help": "The number of validation examples to use during training."}
     )
     text_column_name: Optional[str] = field(
         default="text", metadata={"help": "The name of the text column in the selected dataset"}
@@ -138,11 +145,85 @@ class DataTrainingArguments:
         },
     )
     max_seq_length: Optional[int] = field(
-        default=None,
+        default=512,
         metadata={
             "help": (
                 "The maximum total input sequence length after tokenization and masking. Sequences longer than this"
                 " will be truncated. Default to the max input length of the model."
             )
         },
+    )
+    tokenized_dataset_dir: Optional[str] = field(
+        default="./tokenized_datasets",
+        metadata={"help": "The directory where the tokenized datasets will be saved."},
+    )
+    percent_of_dataset: Optional[int] = field(
+        default=100,
+        metadata={
+            "help": "The percentage of the dataset to use for training. Between 0 and 100. Useful for debugging."
+        },
+    )
+    num_examples: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": "The number of examples to use for training. Useful for debugging. "
+                    "An alternative to percent_of_dataset."
+        },
+    )
+    input_seq_length: Optional[int] = field(
+        default=512,
+        metadata={
+            "help": (
+                "The maximum total input sequence length after tokenization and masking. Sequences longer than this"
+                " will be truncated. Default to the max input length of the model."
+            )
+        },
+    )
+    target_seq_length: Optional[int] = field(
+        default=512,
+        metadata={
+            "help": (
+                "The maximum total target sequence length after tokenization and masking. Sequences longer than this"
+                " will be truncated. Default to the max input length of the model."
+            )
+        },
+    )
+    pre_training_dataset_paths: Optional[str] = field(
+        default="wikipedia,bookcorpus",
+        metadata={"help": "The name of the dataset to use for pre-training (via the datasets library)."}
+    )
+    pre_training_dataset_names: Optional[str] = field(
+        default="20220301.en,",  # Only wikipedia has a name, bookcorpus is just a path.
+        metadata={"help": "The name of the dataset to use for pre-training (via the datasets library)."}
+    )
+    mlm_probability: float = field(
+        default=0.15, metadata={"help": "Ratio of tokens to mask for span masked language modeling loss"}
+    )
+    mean_noise_span_length: float = field(
+        default=3.0,
+        metadata={"help": "Mean span length of masked tokens"},
+    )
+
+
+@dataclass
+class AWSArguments:
+    aws_config_file_path: Optional[str] = field(
+        default=None,
+        metadata={"help": "The path to the AWS config file. Used to configure AWS credentials."},
+    )
+    aws_region: Optional[str] = field(
+        default="us-east-1",
+        metadata={"help": "The AWS region to use for the SageMaker training job."},
+    )
+    aws_access_key_id: Optional[str] = field(
+        default=None,
+        metadata={"help": "The AWS access key ID to use for the SageMaker training job."},
+    )
+    aws_secret_access_key: Optional[str] = field(
+        default=None,
+        metadata={"help": "The AWS secret access key to use for the SageMaker training job."},
+    )
+    aws_role: Optional[str] = field(
+        default="SageMaker-Researcher",
+        metadata={"help": "The name of the AWS IAM role to use for the SageMaker training job."},
     )

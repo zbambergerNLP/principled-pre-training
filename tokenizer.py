@@ -1,5 +1,6 @@
 import typing
 import torch
+import transformers
 from transformers import T5Tokenizer
 
 
@@ -88,13 +89,14 @@ def tokenizer_function_two_input(
         A dictionary containing the original mappings, as well as the mapping between model input names (e.g.,
             `input_ids`) and model input values (e.g., the tensor corresponding to the input IDs of the model).
     """
+    # TODO: Add max length for inputs and targets as parameters.
     inputs_1 = [f"{prefix_1}{sentence}" for sentence in examples[text_column_name_1]]
     inputs_2 = [f"{prefix_2}{sentence}" for sentence in examples[text_column_name_2]]
     inputs = [f"{sent1} {sent2}" for sent1, sent2 in zip(inputs_1, inputs_2)]
     results = {'input_ids': tokenizer(
         inputs,
         padding='max_length',
-        max_length=512,
+        max_length=tokenizer.model_max_length,
         truncation=True,
         return_tensors="pt",
     )['input_ids']}
@@ -108,7 +110,7 @@ def tokenizer_function_two_input(
     labels = tokenizer(
         outputs,
         padding='max_length',
-        max_length=512,
+        max_length=tokenizer.model_max_length,
         truncation=True,
         return_tensors="pt",
     )['input_ids']
@@ -117,3 +119,31 @@ def tokenizer_function_two_input(
     labels[labels == tokenizer.pad_token_id] = -100
     results['labels'] = labels
     return results
+
+
+def tokenizer_function_t5_pre_training(
+        examples: typing.Dict[str, typing.List[str]],
+        tokenizer: T5Tokenizer,
+        text_column_name: str = 'text',
+) -> transformers.tokenization_utils_base.BatchEncoding:
+    """
+    Tokenizes batches of examples for pre-training a T5 model.
+
+    Args:
+        examples: A batch in the form of a dictionary mapping, mapping column names to their respective values.
+        tokenizer: A function which converts string tokens into input_ids and other model inputs.
+        text_column_name: Name of the column within the input dictionary that contains the text which will be
+            tokenized.
+
+    Returns:
+        A dictionary containing the original mappings, as well as the mapping between model input names (e.g.,
+            `input_ids`) and model input values (e.g., the tensor corresponding to the input IDs of the model).
+    """
+    batch_encoding = tokenizer(
+        text=examples[text_column_name],
+        max_length=tokenizer.model_max_length,
+        padding='max_length',
+        truncation=True,
+        return_tensors='pt',
+    )
+    return batch_encoding

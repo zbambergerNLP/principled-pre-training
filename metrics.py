@@ -1,10 +1,10 @@
 import typing
 import numpy as np
-import scipy.stats
+import scipy.stats as stats
 import torch
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, matthews_corrcoef
 import transformers
-import scipy
+
 
 METRIC_NAME_TO_FUNC = {
     'accuracy': accuracy_score,
@@ -24,8 +24,8 @@ METRIC_NAME_TO_FUNC = {
         average='micro',
     ),
     'mcc': matthews_corrcoef,
-    'pearson': scipy.stats.pearsonr,
-    'spearman': scipy.stats.spearmanr,
+    'pearson': stats.pearsonr,
+    'spearman': stats.spearmanr,
 }
 
 
@@ -58,7 +58,8 @@ def compute_metrics(
     for metric_name in metric_names:
         # Metrics from scipy return `statistic` and `pvalue`, but we are only interested in the statistic.
         if metric_name == 'pearson' or metric_name == 'spearman':
-            metrics[metric_name] = METRIC_NAME_TO_FUNC[metric_name](labels, predictions).statistic
+            # Get the statistic (not the pvalue)
+            metrics[metric_name] = METRIC_NAME_TO_FUNC[metric_name](labels, predictions)[0]
         else:
             metrics[metric_name] = METRIC_NAME_TO_FUNC[metric_name](labels, predictions)
     return metrics
@@ -71,7 +72,14 @@ def preprocess_logits_for_metrics(
     """
     Original Trainer may have a memory leak.
 
-    This is a workaround to avoid storing too many tensors that are not needed.
+    This is a workaround to avoid storing too many tensors that are not needed (which may cause a memory leak).
+
+    Args:
+        logits: The logits output by the model.
+        labels: The labels for the model.
+
+    Returns:
+        The predictions of the model (i.e., the argmax of the logits). Shape is [batch_size, target_sequence_length].
     """
     if isinstance(logits, tuple):
         # Depending on the model and config, logits may contain extra tensors,

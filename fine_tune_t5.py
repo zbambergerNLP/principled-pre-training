@@ -29,6 +29,10 @@ if __name__ == "__main__":
     parser = HfArgumentParser((flags.ModelArguments, flags.DataTrainingArguments, flags.TrainingArguments))
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
+    # Set the seed for reproducibility
+    set_seed(training_args.seed)
+
+    # Initialize accelerator
     accelerator = accelerate.Accelerator(
         gradient_accumulation_steps=training_args.training_accumulation_steps,
         log_with='wandb',
@@ -111,7 +115,9 @@ if __name__ == "__main__":
         optim=training_args.optimizer,
         learning_rate=training_args.learning_rate,
         lr_scheduler_type=training_args.lr_scheduler_type,
-        auto_find_batch_size=True,  # Automatically find the batch size that fits on the GPU
+        # auto_find_batch_size=True,  # Automatically find the batch size that fits on the GPU
+        per_device_train_batch_size=training_args.per_device_train_batch_size,
+        per_device_eval_batch_size=training_args.per_device_eval_batch_size,
         warmup_ratio=training_args.warmup_ratio,
         weight_decay=training_args.weight_decay,
         gradient_accumulation_steps=training_args.training_accumulation_steps,
