@@ -1,22 +1,27 @@
 program: fine_tune_t5.py
 project: "T5 Evaluation"
 name: "T5 Evaluation -- GLUE: SST-2"
-method: grid
+method: bayes
 metric:
-  name: eval_accuracy
+  name: eval/accuracy
   goal: maximize
 
 parameters:
-
   learning_rate:
-    values: [1e-3, 1e-4, 1e-5]
+    distribution: uniform
+    min: 1e-5
+    max: 1e-3
 
   lr_scheduler_type:
     values: [
-      "constant_schedule_with_warmup",
-      "linear_schedule_with_warmup",
-      "cosine_schedule_with_warmup",
+      "constant_with_warmup",
+      "linear",
+      "cosine",
     ]
+  benchmark:
+    value: 'glue'
+  dataset_name:
+    value: "sst2"
 
 command:
   - accelerate

@@ -1,0 +1,30 @@
+program: fine_tune_t5.py
+project: "T5 Evaluation"
+name: "T5 Evaluation -- GLUE: cola"
+method: bayes
+metric:
+  name: eval/accuracy
+  goal: maximize
+
+parameters:
+  learning_rate:
+    distribution: uniform
+    min: 1e-5
+    max: 1e-3
+
+  lr_scheduler_type:
+    values: [
+      "constant_with_warmup",
+      "linear",
+      "cosine",
+    ]
+  benchmark:
+    value: 'glue'
+  dataset_name:
+    value: "cola"
+
+command:
+  - accelerate
+  - launch
+  - ${program}
+  - ${args}

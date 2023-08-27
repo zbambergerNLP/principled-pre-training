@@ -5,7 +5,6 @@ import torch
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, matthews_corrcoef
 import transformers
 
-
 METRIC_NAME_TO_FUNC = {
     'accuracy': accuracy_score,
     'f1': lambda labels, prediction: f1_score(
@@ -51,7 +50,6 @@ def compute_metrics(
     labels: np.ndarray
 
     # Flatten the predictions and labels. Ignore the padding tokens (-100)
-    # TODO: Ignore EOS tokens as well
     predictions = predictions[(labels != padding_token) & (labels != eos_token)].flatten()
     labels = labels[(labels != padding_token) & (labels != eos_token)].flatten()
     metrics = {}

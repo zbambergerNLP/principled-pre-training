@@ -27,7 +27,7 @@ class TrainingArguments:
         metadata={"help": "The ID of the last run. Used to resume training."},
     )
     per_device_train_batch_size: int = field(
-        default=4, metadata={"help": "Batch size per device during training."}
+        default=8, metadata={"help": "Batch size per device during training."}
     )
     per_device_eval_batch_size: int = field(
         default=8, metadata={"help": "Batch size per device for evaluation."}
