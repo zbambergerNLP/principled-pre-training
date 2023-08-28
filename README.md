@@ -13,12 +13,19 @@ platform for experimentation with state-of-the-art models.
 ## Table of Contents
 
 1. [Distributed Training](#distributed-training)
-2. [Pre-Training Guide](#pre-training-guide)
-3. [Fine-Tuning Guide](#fine-tuning-guide)
-4. [Code Structure and Functionality](#code-structure-and-functionality)
-5. [Design Decisions](#design-decisions)
-6. [Troubleshooting and FAQs](#troubleshooting-and-faqs)
-7. [Acknowledgments and References](#acknowledgments-and-references)
+2. [Tips for environment setup (within PyCharm)](#tips-for-environment-setup-within-pycharm)
+3. [Setup and Installation](#setup-and-installation)
+4. [Distributed Training](#distributed-training)
+      1. [Distributed Training with Accelerate](#distributed-training-with-accelerate)
+      2. [Distributed Training with DeepSpeed](#distributed-training-with-deepspeed)
+5. [Pipelines](#pipelines)
+   1. [Step-by-Step Pre-Training Process](#step-by-step-pre-training-process)
+   2. [Step-by-Step Fine-Tuning Process](#step-by-step-fine-tuning-process)
+   3. [Sweeps](#sweeps)
+6. [Design Decisions](#design-decisions)
+7. [Expanding Fine-Tuning Capabilities](#expanding-fine-tuning-capabilities)
+8. [Troubleshooting and FAQs](#troubleshooting-and-faqs) 
+9. [Acknowledgments and References](#acknowledgments-and-references)
 
 # Training and Evaluation of Encoder-Decoder Language Models
 
@@ -53,9 +60,9 @@ conda env create -f conda_environment_slurm.yml
 conda activate ml_training
 ```
 
-###
-
 ## Distributed Training
+
+### Distributed Training with Accelerate
 
 We currently support only single-node multi-GPU training. To train on a single node with 4 GPUs, run:
 ```accelerate config```
@@ -112,8 +119,7 @@ Once you've configured the accelerator, and set up wandb, you can run a training
 
 **Note:** Zero3 is not yet supported.
 
-## Pre-Training Guide
-
+## Pipelines
 
 ### Step-by-Step Pre-Training Process
 
@@ -140,6 +146,69 @@ Once you've configured the accelerator, and set up wandb, you can run a training
 8. **Trainer Initialization**: Initialize `transformers.Seq2SeqTrainer`.
 9. **Training Execution**: Start fine-tuning.
 
+### Sweeps
+
+We use [Weights & Biases sweeps](https://docs.wandb.ai/guides/sweeps) to run hyperparameter optimization.
+
+To run a sweep, first set up the sweep configuration file (`sweep_config.yaml`) with the desired hyperparameters.
+Then, run the sweep with `wandb sweep sweep_config.yaml`.
+Finally, run the sweep agent with `wandb agent <sweep_id>`.
+
+We have provided sweep configurations for fine-tuning T5 on GLUE tasks (see the `sweeps` directory). 
+
+If you are running sweeps on a remote server, you can run `wandb sweep <sweep_config_file>` without `srun` or `sbatch`.
+However, you will need to run `wandb agent <sweep_id>` with `srun` or `sbatch` to ensure that the sweep agent is running
+on the correct machine.
+
+See the following example sequence of commands:
+
+```bash
+wandb sweep sweeps/glue_sst2_sweep.yaml
+srun --account <account_name> --partition <partition_name> --gres=gpu:<num_gpus> wandb agent <sweep_id>`
+```
+
+Where the sweep ID is outputted by the `wandb sweep` command. Make sure that the number of GPUs you request is the same
+as the number of GPUs you specified when running `accelerate config`.
+
+See an example yaml file for a sweep configuration below:
+
+```yaml
+program: fine_tune_t5.py
+project: "T5 Evaluation"
+name: "T5 Evaluation -- GLUE: SST-2"
+method: bayes
+metric:
+  name: eval/accuracy
+  goal: maximize
+
+parameters:
+  learning_rate:
+    distribution: uniform
+    min: 1e-5
+    max: 1e-3
+
+  lr_scheduler_type:
+    values: [
+      "constant_with_warmup",
+      "linear",
+      "cosine",
+    ]
+  benchmark:
+    value: 'glue'
+  dataset_name:
+    value: "sst2"
+
+command:
+  - accelerate
+  - launch
+  - ${program}
+  - ${args}
+```
+
+**Note:** We use the `accelerate` launcher to run the training script. This is necessary for distributed training.
+
+**Note:** We focus specifically on the learning rate and scheduler type hyperparameters since these are the most important for
+fine-tuning T5. However, you can add more hyperparameters as needed.
 
 ## Design Decisions
 
