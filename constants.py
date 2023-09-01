@@ -1,3 +1,6 @@
+COLUMN_NAMES = ['input_ids', 'labels']
+
+
 DATASET_VALS = {
     'glue':
         {
@@ -7,7 +10,8 @@ DATASET_VALS = {
                     'text_column_name': 'sentence',
                     'label_column_name': 'label',
                     'metric_to_optimize': 'accuracy',
-                    'metric_names': ['mcc', 'accuracy', 'f1', 'precision', 'recall'],
+                    'greater_is_better': True,
+                    'metric_names': ['accuracy', 'f1', 'precision', 'recall'],
                     'labels': {
                         0: 'negative',
                         1: 'positive',
@@ -21,7 +25,8 @@ DATASET_VALS = {
                     'text_column_name': 'sentence',
                     'label_column_name': 'label',
                     'metric_to_optimize': 'mcc',
-                    'metric_names': ['accuracy', 'f1', 'precision', 'recall'],
+                    'greater_is_better': True,
+                    'metric_names': ['accuracy', 'f1', 'precision', 'recall', 'mcc'],
                     'labels': {
                         0: 'unacceptable',
                         1: 'acceptable',
@@ -36,6 +41,7 @@ DATASET_VALS = {
                     'text_column_name_2': 'sentence2',
                     'label_column_name': 'label',
                     'metric_to_optimize': 'accuracy',
+                    'greater_is_better': True,
                     'metric_names': ['accuracy', 'f1', 'precision', 'recall'],
                     'labels': {
                         0: 'entailment',
@@ -52,6 +58,7 @@ DATASET_VALS = {
                     'text_column_name_2': 'hypothesis',
                     'label_column_name': 'label',
                     'metric_to_optimize': 'accuracy',
+                    'greater_is_better': True,
                     'metric_names': ['accuracy', 'f1', 'precision', 'recall'],
                     'labels': {
                         2: 'contradiction',
@@ -68,6 +75,7 @@ DATASET_VALS = {
                     'text_column_name_2': 'sentence',
                     'label_column_name': 'label',
                     'metric_to_optimize': 'accuracy',
+                    'greater_is_better': True,
                     'metric_names': ['accuracy', 'f1', 'precision', 'recall'],
                     'labels': {
                         1: 'not_entailment',
@@ -83,6 +91,7 @@ DATASET_VALS = {
                     'text_column_name_2': 'sentence2',
                     'label_column_name': 'label',
                     'metric_to_optimize': 'f1',
+                    'greater_is_better': True,
                     'metric_names': ['accuracy', 'f1', 'precision', 'recall'],
                     'labels': {
                         0: 'not_equivalent',
@@ -98,6 +107,7 @@ DATASET_VALS = {
                     'text_column_name_2': 'question2',
                     'label_column_name': 'label',
                     'metric_to_optimize': 'accuracy',
+                    'greater_is_better': True,
                     'metric_names': ['accuracy', 'f1', 'precision', 'recall'],
                     'labels': {
                         0: 'not_duplicate',
@@ -113,6 +123,7 @@ DATASET_VALS = {
                     'text_column_name_2': 'sentence2',
                     'label_column_name': 'label',
                     'metric_to_optimize': 'spearman',
+                    'greater_is_better': True,
                     'metric_names': ['spearman', 'pearson', 'accuracy', 'f1', 'precision', 'recall'],
                     'labels': None,
                 },

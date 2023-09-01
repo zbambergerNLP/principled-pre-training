@@ -41,14 +41,16 @@ class TrainingArguments:
         }
     )
     lr_scheduler_type: Optional[str] = field(
-        default="linear", metadata={"help": "The LR scheduler to use. Can be 'linear' or 'cosine'."}
+        default="constant", metadata={"help": "The LR scheduler to use. Can be 'linear', 'constant', or 'cosine'."}
     )
     num_train_epochs: int = field(
         default=3, metadata={"help": "Total number of training epochs to perform."}
     )
-    learning_rate: float = field(default=3e-4, metadata={"help": "The initial learning rate for AdamW."})
+    learning_rate: float = field(default=1e-3, metadata={"help": "The initial learning rate for AdamW."})
     weight_decay: float = field(default=0.0, metadata={"help": "Weight decay for AdamW if we apply some."})
-    warmup_ratio: float = field(default=0.1, metadata={"help": "The ratio of warmup steps to total training steps."})
+
+    # TODO: Set warmup ratio back to 0.1 for default value.
+    warmup_ratio: float = field(default=0.0, metadata={"help": "The ratio of warmup steps to total training steps."})
     patience: int = field(default=3, metadata={"help": "The number of epochs to wait for the validation loss to"
                                                        " improve before early stopping."})
     logging_steps: int = field(default=20, metadata={"help": "Log every X updates steps."})
@@ -58,11 +60,34 @@ class TrainingArguments:
     training_accumulation_steps: int = field(
         default=4, metadata={"help": "Number of training steps to accumulate before performing backward pass."}
     )
+    training_padding_token_id: int = field(
+        default=-100, metadata={"help": "The token ID used to pad the training labels."}
+    )
     # TODO: Change the default value of eval_steps to None, when this value is set to None have it infer from
     #  the number of steps when to perform an evaluation.
     eval_steps: int = field(
-        default=50,
+        default=200,
         metadata={"help": "Number of eval steps to perform before logging metrics."}
+    )
+    eval_with_teacher_forcing: bool = field(
+        default=False,
+        metadata={"help": "Whether to use teacher forcing during evaluation."}
+    )
+    eval_with_beam_search: bool = field(
+        default=False,
+        metadata={"help": "Whether to use beam search during evaluation."}
+    )
+    beam_search_num_beams: int = field(
+        default=4,
+        metadata={"help": "The number of beams to use during beam search decoding."}
+    )
+    beam_search_max_length: int = field(
+        default=64,
+        metadata={"help": "The maximum length of the decoded sequence during beam search decoding."}
+    )
+    beam_search_length_penalty: float = field(
+        default=0.6,
+        metadata={"help": "The length penalty to use during beam search decoding."}
     )
     save_steps: int = field(default=1_000, metadata={"help": "Save checkpoint every X updates steps."})
 
@@ -76,6 +101,20 @@ class TrainingArguments:
         default="zero_stage2_config.json", metadata={"help": "The path to the deepspeed config file."}
     )
     local_rank: int = field(default=-1, metadata={"help": "Local rank for distributed training on GPUs."})
+    checkpoint_origin: Optional[str] = field(
+        default='pretrained',
+        metadata={
+            "help": "One of {pretrained, continuous_pretraining, discourse}. Pre-trained checkpoints are "
+                    "downloaded from HuggingFace. Continuous pre-training checkpoints are downloaded from local "
+                    "storage. Discourse checkpoints are also downloaded from local storage (obtained by in-house"
+                    "pre-training)."
+        },
+    )
+    save_total_limit: Optional[int] = field(
+        default=None,
+        metadata={"help": "If a value is passed, will limit the total amount of checkpoints. Deletes the older "
+                          "checkpoints in output_dir. Default to unlimited checkpoints."},
+    )
 
 
 @dataclass
@@ -180,7 +219,7 @@ class DataTrainingArguments:
         },
     )
     target_seq_length: Optional[int] = field(
-        default=512,
+        default=64,
         metadata={
             "help": (
                 "The maximum total target sequence length after tokenization and masking. Sequences longer than this"

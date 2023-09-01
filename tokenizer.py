@@ -11,6 +11,8 @@ def tokenizer_function_one_input(
         prefix: str,
         text_column_name: str = 'sentence',
         label_column_name: str = 'label',
+        input_max_length: int = 512,
+        target_max_length: int = 512,
 ) -> typing.Dict[str, torch.Tensor]:
     """
     Tokenizes batches of examples with only a single textual input for an encoder-decoder model.
@@ -23,6 +25,8 @@ def tokenizer_function_one_input(
         text_column_name: Name of the column within the input dictionary that contains the text which will be tokenized.
         label_column_name: Name of the column within the input dictionary that contains the labels which will be
             tokenized.
+        input_max_length: The maximum length of the input sequence.
+        target_max_length: The maximum length of the target sequence.
 
     Returns:
         A dictionary containing the original mappings, as well as the mapping between model input names (e.g.,
@@ -32,7 +36,7 @@ def tokenizer_function_one_input(
     results = {'input_ids': tokenizer(
         inputs,
         padding='max_length',
-        max_length=512,
+        max_length=input_max_length,
         truncation=True,
         return_tensors="pt",
     )['input_ids']}
@@ -42,7 +46,7 @@ def tokenizer_function_one_input(
     labels = tokenizer(
         outputs,
         padding='max_length',
-        max_length=512,
+        max_length=target_max_length,
         truncation=True,
         return_tensors="pt",
     )['input_ids']
@@ -63,6 +67,8 @@ def tokenizer_function_two_input(
         text_column_name_2: str = 'sentence2',
         label_column_name: str = 'label',
         is_regression: bool = False,
+        input_max_length: int = 512,
+        target_max_length: int = 512,
 ) -> typing.Dict[str, torch.Tensor]:
     """
     Tokenizes batches of examples with only a single textual input for an encoder-decoder model.
@@ -85,6 +91,8 @@ def tokenizer_function_two_input(
         label_column_name: Name of the column within the input dictionary that contains the labels which will be
             tokenized.
         is_regression: True if task is a regression task, False if task is classification task.
+        input_max_length: The maximum length of the input sequence.
+        target_max_length: The maximum length of the target sequence.
     Returns:
         A dictionary containing the original mappings, as well as the mapping between model input names (e.g.,
             `input_ids`) and model input values (e.g., the tensor corresponding to the input IDs of the model).
@@ -96,7 +104,7 @@ def tokenizer_function_two_input(
     results = {'input_ids': tokenizer(
         inputs,
         padding='max_length',
-        max_length=tokenizer.model_max_length,
+        max_length=input_max_length,
         truncation=True,
         return_tensors="pt",
     )['input_ids']}
@@ -110,7 +118,7 @@ def tokenizer_function_two_input(
     labels = tokenizer(
         outputs,
         padding='max_length',
-        max_length=tokenizer.model_max_length,
+        max_length=target_max_length,
         truncation=True,
         return_tensors="pt",
     )['input_ids']
