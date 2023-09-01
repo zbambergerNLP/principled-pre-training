@@ -19,7 +19,7 @@
 
 # Run the following command to start the sweep (allow for 20 runs at a time):
 #nvidia-smi
-#wandb agent --count 20 'zbamberger/T5 Evaluation/ymjroufq'
+#wandb agent --count 20 <your sweep ID>
 
 
 
