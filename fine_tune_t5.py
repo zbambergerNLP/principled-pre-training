@@ -16,19 +16,6 @@ import tokenizer as tokenizer_lib
 import metrics as metrics_lib
 
 
-"""
-All tasks: 
-sst2, cola, rte, mnli, mrpc, qqp, qnli, stsb
-
-accelerate launch fine_tune_t5.py \
---model_name_or_path "./custom_pretrained_models/reddit_t5_pretrained_lr_0.001/checkpoint-50000" \
---dataset_name cola \
---learning_rate 5e-5 \
---num_train_epochs 3
-
-"""
-
-
 def set_seed(seed: int):
     """Set the seed for reproducibility."""
     random.seed(seed)

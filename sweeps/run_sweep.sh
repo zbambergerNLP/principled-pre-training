@@ -14,13 +14,12 @@
 #SBATCH -o eval_runs/slurm_%N_%j_out.txt       # stdout goes here
 #SBATCH -e eval_runs/slurm_%N_%j_err.txt       # stderr goes here
 #SBATCH --mail-type=fail         # send email if job fails
-#SBATCH --mail-user=zachary@campus.technion.ac.il  # TODO: Remove before pushing.
 
 # To send you an email on failure, add 'SBATCH --mail-user=<your_mail>'
 
-# Allow for 20 run configurations as part of the sweep
-nvidia-smi
-wandb agent --count 20 'zbamberger/T5 Evaluation/ymjroufq'
+# Run the following command to start the sweep (allow for 20 runs at a time):
+#nvidia-smi
+#wandb agent --count 20 'zbamberger/T5 Evaluation/ymjroufq'
 
 
 
