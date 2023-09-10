@@ -1,29 +1,17 @@
 import os
-import random
-
 import typing
-
+import datasets
 import constants
-from constants import DATASET_VALS
 import accelerate
 import transformers
 from transformers import T5Tokenizer, T5ForConditionalGeneration, HfArgumentParser
-from datasets import load_dataset
 import torch
-import flags
-import numpy as np
 import tokenizer as tokenizer_lib
 import metrics as metrics_lib
-
-
-def set_seed(seed: int):
-    """Set the seed for reproducibility."""
-    random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
-    transformers.set_seed(seed)
+from constants import DATASET_VALS
+import preprocess
+import utils
+import flags
 
 
 if __name__ == "__main__":
@@ -33,7 +21,7 @@ if __name__ == "__main__":
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
     # Set the seed for reproducibility
-    set_seed(training_args.seed)
+    utils.set_seed(training_args.seed)
 
     # Initialize accelerator
     accelerator = accelerate.Accelerator(
@@ -58,7 +46,8 @@ if __name__ == "__main__":
 
     # The experiment's name is based on the learning rate and the scheduler type. This is to make it easier to
     # compare experiments.
-    experiment_name = (f"t5_{training_args.checkpoint_origin}_"
+    experiment_name = (f"{model_args.model_name_or_path.split('/')[-1].replace('.', '_')}"
+                       f"dataset_{data_args.dataset_name}_"
                        f"lr_{training_args.learning_rate}_"
                        f"scheduler_{training_args.lr_scheduler_type}"
                        )
@@ -92,67 +81,127 @@ if __name__ == "__main__":
             'num_beams': training_args.beam_search_num_beams,
             'length_penalty': training_args.beam_search_length_penalty,
             'eval_with_beam_search': training_args.eval_with_beam_search,
-            'early_stopping_patience': training_args.patience,
+            'early_stopping_patience': training_args.early_stopping_patience,
+            'early_stopping_threshold': training_args.early_stopping_threshold,
+            'eval_with_teacher_forcing': training_args.eval_with_teacher_forcing,
         },
         init_kwargs={
             "wandb": {
                 "name": experiment_name,
-                "project": "T5 Evaluation",
-                "group": f"{data_args.benchmark}/{data_args.dataset_name}",
             }
         }
     )
 
-    # Load the appropriate dataset
-    dataset = load_dataset(data_args.benchmark, data_args.dataset_name)
+    # Load and pre-process the appropriate dataset/s
+    if data_args.dataset_name == 'all':
 
-    if 'prefix' in DATASET_VALS[data_args.benchmark][data_args.dataset_name].keys():
-        def wrapped_tokenizer_function(examples):
-            return tokenizer_lib.tokenizer_function_one_input(
-                examples=examples,
-                tokenizer=tokenizer,
-                prefix=DATASET_VALS[data_args.benchmark][data_args.dataset_name]['prefix'],
-                text_column_name=DATASET_VALS[data_args.benchmark][data_args.dataset_name]['text_column_name'],
-                label_column_name=DATASET_VALS[data_args.benchmark][data_args.dataset_name]['label_column_name'],
-                label_names=DATASET_VALS[data_args.benchmark][data_args.dataset_name]['labels'],
-                input_max_length=data_args.input_seq_length,
-                target_max_length=data_args.target_seq_length,
+        # Load all datasets
+        accelerator.print("Loading all datasets...")
+        training_sets = []
+        validation_sets = {}  # Create a validation set for each dataset in the benchmark.
+        test_sets = {}  # Create a test set for each dataset in the benchmark.
+
+        for dataset_name in datasets.get_dataset_config_names(data_args.benchmark):
+
+            if dataset_name in data_args.excluded_datasets.split(','):
+                continue
+
+            accelerator.print(f"\tLoading {dataset_name}...")
+            dataset = datasets.load_dataset(data_args.benchmark, dataset_name)
+
+            # Create a function to pre-process the dataset
+            preprocessing_function = preprocess.create_preprocess_function(
+                dataset_info=DATASET_VALS[data_args.benchmark][dataset_name],
+                dataset_name=dataset_name
             )
 
-    elif (
-            'prefix_1' in DATASET_VALS[data_args.benchmark][data_args.dataset_name].keys() and
-            'prefix_2' in DATASET_VALS[data_args.benchmark][data_args.dataset_name].keys()
-    ):
-        is_regression = data_args.dataset_name == 'stsb'
-
-        def wrapped_tokenizer_function(examples):
-            return tokenizer_lib.tokenizer_function_two_input(
-                examples=examples,
-                tokenizer=tokenizer,
-                prefix_1=DATASET_VALS[data_args.benchmark][data_args.dataset_name]['prefix_1'],
-                prefix_2=DATASET_VALS[data_args.benchmark][data_args.dataset_name]['prefix_2'],
-                text_column_name_1=DATASET_VALS[data_args.benchmark][data_args.dataset_name]['text_column_name_1'],
-                text_column_name_2=DATASET_VALS[data_args.benchmark][data_args.dataset_name]['text_column_name_2'],
-                label_column_name=DATASET_VALS[data_args.benchmark][data_args.dataset_name]['label_column_name'],
-                label_names=DATASET_VALS[data_args.benchmark][data_args.dataset_name]['labels'],
-                is_regression=is_regression,
-                input_max_length=data_args.input_seq_length,
-                target_max_length=data_args.target_seq_length,
+            accelerator.print(f"\tPreprocessing {dataset_name}...")
+            dataset = dataset.map(
+                preprocessing_function,
+                batched=True,
+                desc=f"Preprocessing {dataset_name}",
+                remove_columns=['label'],
             )
+
+            if constants.TRAIN in dataset.keys():
+                training_sets.append(dataset[constants.TRAIN])
+            if constants.VALIDATION in dataset.keys():
+                validation_sets[dataset_name] = dataset[constants.VALIDATION]
+            if constants.TEST in dataset.keys():
+                test_sets[dataset_name] = dataset[constants.TEST]
+
+        # Combine the datasets
+        # Shuffle only the training set.
+        accelerator.print("Combining datasets...")
+        training_set = datasets.concatenate_datasets(training_sets).shuffle()
+        dataset = datasets.DatasetDict({
+            constants.TRAIN: training_set,
+        })
+        for dataset_name, validation_set in validation_sets.items():
+            dataset[f'{constants.VALIDATION}_{dataset_name}'] = validation_set
+        for dataset_name, test_set in test_sets.items():
+            dataset[f'{constants.TEST}_{dataset_name}'] = test_set
 
     else:
-        raise RuntimeError(
-            "Unsupported prefix structure. Must contain either `prefix` for single input tasks or `prefix_1` and "
-            "`prefix_2` for two input tasks"
+        # Load the specified dataset
+        # TODO: MNLI is a special case since it has two validation sets. This needs to be handled separately.
+        accelerator.print(f"Loading {data_args.dataset_name}...")
+        dataset = datasets.load_dataset(data_args.benchmark, data_args.dataset_name)
+        preprocessing_function = preprocess.create_preprocess_function(
+            dataset_info=DATASET_VALS[data_args.benchmark][data_args.dataset_name],
+            dataset_name=data_args.dataset_name,
+        )
+        accelerator.print(f"Preprocessing {data_args.dataset_name}...")
+        dataset = dataset.map(
+            preprocessing_function,
+            batched=True,
+            desc=f"Preprocessing {data_args.dataset_name}",
         )
 
-    # Preprocess the datasets
+    # Tokenize the dataset
+    def wrapped_tokenizer_function(examples):
+        return tokenizer_lib.tokenize_function(
+            examples=examples,
+            tokenizer=tokenizer,
+            input_column_name='processed_inputs',
+            target_column_name='processed_outputs',
+            input_max_length=data_args.input_seq_length,
+            target_max_length=data_args.target_seq_length,
+        )
+
     encoded_dataset = dataset.map(
-        wrapped_tokenizer_function,  # Tokenizes the dataset
-        batch_size=training_args.per_device_train_batch_size,
+        wrapped_tokenizer_function,
         batched=True,
-        num_proc=torch.cuda.device_count() if torch.cuda.is_available() else 1,
+        desc=f"Tokenizing {data_args.dataset_name}",
     )
+
+    accelerator.print(f'column names are: {encoded_dataset.column_names}')
+
+    train_dataset = encoded_dataset[constants.TRAIN]  # There is only one training dataset.
+    train_dataset.set_format(type='torch', columns=constants.GLUE_TOKENIZED_COLUMN_NAMES)
+
+    # Create a dictionary mapping dataset names to their respective validation sets.
+    if data_args.dataset_name == constants.ALL:
+        eval_dataset = {}
+        for split in encoded_dataset.keys():
+            if split.startswith(f'{constants.VALIDATION}_'):
+                dataset_name = split[len(f'{constants.VALIDATION}_'):]
+                eval_dataset[dataset_name] = encoded_dataset[split]
+                eval_dataset[dataset_name].set_format(type='torch', columns=constants.GLUE_TOKENIZED_COLUMN_NAMES)
+
+        # Create a dictionary mapping dataset names to their respective test sets.
+        test_datasets = {}
+        for split in encoded_dataset.keys():
+            if split.startswith(f'{constants.TEST}_'):
+                dataset_name = split[len(f'{constants.TEST}_'):]
+                test_datasets[dataset_name] = encoded_dataset[split]
+                test_datasets[dataset_name].set_format(type='torch', columns=constants.GLUE_TOKENIZED_COLUMN_NAMES)
+                test_datasets[dataset_name].remove_columns([constants.LABELS])  # Remove the labels from the test dataset
+    else:
+        eval_dataset = encoded_dataset[constants.VALIDATION]
+        eval_dataset.set_format(type='torch', columns=constants.GLUE_TOKENIZED_COLUMN_NAMES)
+        test_dataset = encoded_dataset[constants.TEST]
+        test_dataset.set_format(type='torch', columns=constants.GLUE_TOKENIZED_COLUMN_NAMES)
 
     # Define the training parameters
     trainer_arguments = transformers.Seq2SeqTrainingArguments(
@@ -161,25 +210,32 @@ if __name__ == "__main__":
         logging_dir=training_args.logging_dir,
 
         # Optimization parameters
+        deepspeed=training_args.deepspeed_config if training_args.deepspeed else None,
         optim=training_args.optimizer,
         learning_rate=training_args.learning_rate,
         lr_scheduler_type=training_args.lr_scheduler_type,
-        # auto_find_batch_size=True,  # Automatically find the batch size that fits on the GPU
         per_device_train_batch_size=training_args.per_device_train_batch_size,
         per_device_eval_batch_size=training_args.per_device_eval_batch_size,
         warmup_ratio=training_args.warmup_ratio,
         weight_decay=training_args.weight_decay,
-        gradient_accumulation_steps=training_args.training_accumulation_steps,
         eval_accumulation_steps=training_args.eval_accumulation_steps,
 
         # Training strategy to adopt
-        logging_strategy="steps",
-        evaluation_strategy="steps",
-        save_strategy="steps",
+        logging_strategy=constants.STEPS,
+        evaluation_strategy=constants.STEPS,
+        save_strategy=constants.STEPS,
         num_train_epochs=training_args.num_train_epochs,
-        load_best_model_at_end=True,
-        metric_for_best_model=DATASET_VALS[data_args.benchmark][data_args.dataset_name]['metric_to_optimize'],
-        greater_is_better=DATASET_VALS[data_args.benchmark][data_args.dataset_name]['greater_is_better'],
+
+        # Early stopping (only used if the dataset is not 'all')
+        load_best_model_at_end=False if data_args.dataset_name == constants.ALL else True,
+        metric_for_best_model=(
+            None if data_args.dataset_name == constants.ALL else
+            DATASET_VALS[data_args.benchmark][data_args.dataset_name][constants.METRIC_TO_OPTIMIZE]
+        ),
+        greater_is_better=(
+            None if data_args.dataset_name == constants.ALL else
+            DATASET_VALS[data_args.benchmark][data_args.dataset_name][constants.GREATER_IS_BETTER]
+        ),
 
         # Frequency of training callbacks (logging, evaluation, checkpointing, etc.)
         logging_steps=training_args.logging_steps,
@@ -207,18 +263,10 @@ if __name__ == "__main__":
     def compute_metrics(eval_pred: transformers.EvalPrediction) -> typing.Dict[str, float]:
         return metrics_lib.compute_metrics(
             eval_pred=eval_pred,
-            metric_names=DATASET_VALS[data_args.benchmark][data_args.dataset_name]['metric_names'],
+            metric_names=DATASET_VALS[data_args.benchmark][data_args.dataset_name][constants.METRIC_NAMES],
             padding_token=tokenizer.pad_token_id,
             eos_token=tokenizer.eos_token_id,
         )
-
-    # Set up the datasets for training and evaluation
-    train_dataset = encoded_dataset['train']
-    eval_dataset = encoded_dataset['validation']
-    test_dataset = encoded_dataset['test']
-    train_dataset.set_format(type='torch', columns=constants.COLUMN_NAMES)
-    eval_dataset.set_format(type='torch', columns=constants.COLUMN_NAMES)
-    test_dataset.set_format(type='torch', columns=constants.COLUMN_NAMES)
 
     # Train the model
     trainer = transformers.Seq2SeqTrainer(
@@ -235,9 +283,14 @@ if __name__ == "__main__":
             metrics_lib.preprocess_logits_for_metrics if training_args.eval_with_teacher_forcing else None
         ),
         callbacks=[
-            transformers.trainer_callback.EarlyStoppingCallback(early_stopping_patience=training_args.patience),
-        ],
+            transformers.trainer_callback.EarlyStoppingCallback(
+                early_stopping_patience=training_args.early_stopping_patience,
+                early_stopping_threshold=training_args.early_stopping_threshold,
+            ),
+        ] if data_args.dataset_name != 'all' else None,  # Only use early stopping if the dataset is not 'all'
+        # TODO: Create a unified metric (e.g., loss) that can be used for early stopping on all datasets.
     )
+    trainer.add_callback(utils.TrainingMetricsCallback(trainer))
 
     if model_args.model_name_or_path is not None:
         if os.path.isdir(model_args.model_name_or_path) and os.listdir(model_args.model_name_or_path) != []:
@@ -253,33 +306,46 @@ if __name__ == "__main__":
     accelerator.print(f"Training completed. Saving model to {output_dir}")
 
     # Evaluate the model
-    validation_metrics = trainer.evaluate(
-        eval_dataset=eval_dataset,
-        metric_key_prefix='validation',
-        num_beams=training_args.beam_search_num_beams,
-    )
-    accelerator.print(f"Validation metrics: {validation_metrics}")
+    if data_args.dataset_name == constants.ALL:
+        # Evaluate the model on each dataset in the benchmark
+        for dataset_name, eval_dataset in eval_dataset.items():
+            accelerator.print(f"Evaluating on validation set: {dataset_name}")
+            test_metrics = trainer.evaluate(
+                eval_dataset=eval_dataset,
+                metric_key_prefix=constants.VALIDATION,
+                num_beams=training_args.beam_search_num_beams,
+            )
 
-    # Predict on the test dataset
+        for dataset_name, test_dataset in test_datasets.items():
+            accelerator.print(f"Predicting on test set: {dataset_name}")
+            test_predictions = trainer.predict(
+                test_dataset=test_dataset,
+                metric_key_prefix=constants.TEST,
+                num_beams=training_args.beam_search_num_beams,
+            )
+            if accelerator.is_local_main_process:
+                with open(os.path.join(output_dir, f'test_predictions_{dataset_name}.txt'), 'w') as f:
+                    for prediction in test_predictions.predictions:
+                        f.write(prediction + '\n')
+    else:
+        # Evaluate the model on the specified dataset
+        accelerator.print(f"Evaluating on validation set: {data_args.dataset_name}")
+        test_metrics = trainer.evaluate(
+            eval_dataset=eval_dataset[data_args.dataset_name],
+            metric_key_prefix=constants.VALIDATION,
+            num_beams=training_args.beam_search_num_beams,
+        )
+
+        accelerator.print(f"Predicting on test set: {data_args.dataset_name}")
+        test_predictions = trainer.predict(
+            test_dataset=test_datasets[data_args.dataset_name],
+            metric_key_prefix=constants.TEST,
+            num_beams=training_args.beam_search_num_beams,
+        )
+        if accelerator.is_local_main_process:
+            with open(os.path.join(output_dir, 'test_predictions.txt'), 'w') as f:
+                for prediction in test_predictions.predictions:
+                    f.write(prediction + '\n')
+
     # TODO: Enable saving the test predictions to a file alongside the input and target sequences.
-    # TODO: Enable writing a GLUE submission file.
-    test_dataset.remove_columns(['labels'])  # Remove the labels from the test dataset
-    test_predictions = trainer.predict(
-        test_dataset=test_dataset,
-        metric_key_prefix='test',
-        num_beams=training_args.beam_search_num_beams,
-    )
-
-    # Decode the predictions
-    test_predictions = tokenizer.batch_decode(
-        test_predictions.predictions,
-        skip_special_tokens=True,
-        clean_up_tokenization_spaces=True,
-    )
-
-    # Save the predictions
-    accelerator.print(f"Saving predictions to {output_dir}")
-    if accelerator.is_local_main_process:
-        with open(os.path.join(output_dir, 'test_predictions.txt'), 'w') as f:
-            for prediction in test_predictions:
-                f.write(prediction + '\n')
+    # TODO: Enable writing a GLUE submission file. This might require iteration + model.generate().

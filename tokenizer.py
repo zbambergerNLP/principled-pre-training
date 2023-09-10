@@ -4,6 +4,56 @@ import transformers
 from transformers import T5Tokenizer
 
 
+def tokenize_function(
+        examples: typing.Dict[str, typing.Any],
+        tokenizer: transformers.PreTrainedTokenizer,
+        input_column_name: str = 'sentence',
+        target_column_name: str = 'label',
+        input_max_length: int = 512,
+        target_max_length: int = 512,
+) -> typing.Dict[str, torch.Tensor]:
+    """
+    Tokenizes batches of examples for an encoder-decoder model.
+
+    Args:
+        examples: A batch in the form of a dictionary mapping, mapping column names to their respective values.
+        tokenizer: A function which converts string tokens into input_ids and other model inputs.
+        input_column_name: Name of the column within the input dictionary that contains the text which will be
+            tokenized.
+        target_column_name: Name of the column within the input dictionary that contains the labels which will be
+            tokenized.
+        input_max_length: The maximum length of the input sequence.
+        target_max_length: The maximum length of the target sequence.
+
+    Returns:
+        A dictionary containing the original mappings, as well as the mapping between model input names (e.g.,
+            `input_ids`) and model input values (e.g., the tensor corresponding to the input IDs of the model).
+    """
+    inputs = examples[input_column_name]
+    encoding = tokenizer(
+        inputs,
+        padding='max_length',
+        max_length=input_max_length,
+        truncation=True,
+        return_tensors="pt",
+    )
+    results = {'input_ids': encoding.input_ids, 'attention_mask': encoding.attention_mask}
+
+    # Labels are not preprocessed for the T5 model. model_inputs are returned as is
+    outputs = examples[target_column_name]
+    labels = tokenizer(
+        outputs,
+        padding='max_length',
+        max_length=target_max_length,
+        truncation=True,
+        return_tensors="pt",
+    )['input_ids']
+
+    # Replace the padding token with -100 to ignore it for loss computation
+    labels[labels == tokenizer.pad_token_id] = -100
+    results['labels'] = labels
+    return results
+
 def tokenizer_function_one_input(
         examples: typing.Dict[str, typing.Any],
         tokenizer: T5Tokenizer,
@@ -33,16 +83,17 @@ def tokenizer_function_one_input(
             `input_ids`) and model input values (e.g., the tensor corresponding to the input IDs of the model).
     """
     inputs = [f"{prefix}{sentence}" for sentence in examples[text_column_name]]
-    results = {'input_ids': tokenizer(
+    encoding = tokenizer(
         inputs,
         padding='max_length',
         max_length=input_max_length,
         truncation=True,
         return_tensors="pt",
-    )['input_ids']}
+    )
+    results = {'input_ids': encoding.input_ids, 'attention_mask': encoding.attention_mask}
 
     # Labels are not preprocessed for the T5 model. model_inputs are returned as is
-    outputs = [label_names[example] for example in examples[label_column_name]]
+    outputs = [label_names[label] for label in examples[label_column_name]]
     labels = tokenizer(
         outputs,
         padding='max_length',
@@ -101,13 +152,14 @@ def tokenizer_function_two_input(
     inputs_1 = [f"{prefix_1}{sentence}" for sentence in examples[text_column_name_1]]
     inputs_2 = [f"{prefix_2}{sentence}" for sentence in examples[text_column_name_2]]
     inputs = [f"{sent1} {sent2}" for sent1, sent2 in zip(inputs_1, inputs_2)]
-    results = {'input_ids': tokenizer(
+    encoding = tokenizer(
         inputs,
         padding='max_length',
         max_length=input_max_length,
         truncation=True,
         return_tensors="pt",
-    )['input_ids']}
+    )
+    results = {'input_ids': encoding.input_ids, 'attention_mask': encoding.attention_mask}
 
     if is_regression:  # Training task involves predicting continuous values
         outputs = [str(round(example, 1)) for example in examples[label_column_name]]

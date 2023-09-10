@@ -1,5 +1,9 @@
 # Training and Evaluation of Encoder-Decoder Language Models
 
+## Announcements
+
+* **September 10'th**: We have added support for multi-task training on GLUE. Simply specify `all` when selecting the dataset after specifying `glue` as the benchmark. More detailed instructions/details coming soon...
+
 ## Introduction
 
 This repository provides a complete toolkit for training and fine-tuning T5 models using span masking 
@@ -267,6 +271,37 @@ This section provides guidance on common issues and frequently asked questions:
 * **Q**: Can I use this repository for other benchmarks and tasks? 
 
   **A**: Yes, the repository is designed to be extensible and can be adapted for various NLP benchmarks and tasks.
+* **Q**: What is the maximum batch size for various T5 model sizes?
+
+  **A**: The maximum batch size for T5 models is as follows:
+    * T5-small: 8
+    * T5-base: 4
+
+* **Q**: What is the ideal learning rate range for each T5 model size?
+
+  **A**: The ideal learning rate range for T5 models is as follows:
+    * T5-small: 1e-3 - 1e-5
+    * T5-base: ??? - ???
+
+* **Q**: What are the ideal hyper-parameters to train T5-Base?
+
+  **A**:
+Optimal Hyperparameters for T5-Base on GLUE tasks:
+
+| Task  | Learning Rate | Scheduler Type      | Batch Size | Epochs | Training Accumulation Steps | Eval Steps | Logging Steps       |
+|-------|---------------|---------------------|------------|--------|-----------------------------|------------|---------------------|
+| SST-2 | 5e-4          | linear (10% warmup) | 4          | 10     | 4                           | 500        | 50                  |
+| MRPC  | 5e-4          | linear (10% warmup) | 4          | 50     | 4                           | 100        | 50                 |
+| RTE   | 5e-4          | linear (10% warmup) | 4          | 50     | 4                           | 100        | 50                 |
+| QNLI  | 5e-4          | linear (10% warmup) | 4          | 5      | 4                           | 2,000      | 50                 |
+| QQP   | 5e-4          | linear (10% warmup) | 4          | 3      | 4                           |            | 50                 |
+| MNLI  | 5e-4          | linear (10% warmup) | 4          | 3      | 4                           |            | 50                 |
+| CoLA  | 5e-4          | linear (10% warmup) | 4          | 20     | 4                           |            | 50                 |
+| STS-B | 5e-4          | linear (10% warmup) | 4          | 20     | 4                           |            | 50                 |
+| WNLI  | 5e-4          | linear (10% warmup) | 4          | 20     | 4                           |            | 50                 |
+   Note that for all datasets, we use a batch size of 4, and a learning rate of 5e-4 with a linear scheduler with 10%
+   warmup. We also always log every 50 steps, and accumulate gradients every 4 steps. The number of epochs and 
+   evaluation steps are dataset-specific.
 
 For more specific inquiries or troubleshooting, please feel free to open an issue on GitHub or contact the maintainers.
 

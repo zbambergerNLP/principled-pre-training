@@ -27,10 +27,10 @@ class TrainingArguments:
         metadata={"help": "The ID of the last run. Used to resume training."},
     )
     per_device_train_batch_size: int = field(
-        default=8, metadata={"help": "Batch size per device during training."}
+        default=4, metadata={"help": "Batch size per device during training."}
     )
     per_device_eval_batch_size: int = field(
-        default=8, metadata={"help": "Batch size per device for evaluation."}
+        default=4, metadata={"help": "Batch size per device for evaluation."}
     )
     optimizer: Optional[str] = field(
         default="adamw_torch",
@@ -41,18 +41,26 @@ class TrainingArguments:
         }
     )
     lr_scheduler_type: Optional[str] = field(
-        default="constant", metadata={"help": "The LR scheduler to use. Can be 'linear', 'constant', or 'cosine'."}
+        default="linear", metadata={
+            "help": "The LR scheduler to use. Can be 'linear', 'constant', or 'cosine'.\n"
+                    "Note that the original T5 paper fine-tunes with a 'constant' LR scheduler, and pre-trains"
+                    "with an inverse square ratio scheduler."
+        }
     )
     num_train_epochs: int = field(
-        default=3, metadata={"help": "Total number of training epochs to perform."}
+        default=50, metadata={"help": "Total number of training epochs to perform."}
     )
-    learning_rate: float = field(default=1e-3, metadata={"help": "The initial learning rate for AdamW."})
+    learning_rate: float = field(default=3e-4, metadata={
+        "help": "The initial learning rate for the optimizer."
+                "In T5, the learning rate is set to 1e-3 for both pre-training and fine-tuning.."
+    })
     weight_decay: float = field(default=0.0, metadata={"help": "Weight decay for AdamW if we apply some."})
 
-    # TODO: Set warmup ratio back to 0.1 for default value.
-    warmup_ratio: float = field(default=0.0, metadata={"help": "The ratio of warmup steps to total training steps."})
-    patience: int = field(default=3, metadata={"help": "The number of epochs to wait for the validation loss to"
-                                                       " improve before early stopping."})
+    warmup_ratio: float = field(default=0.1, metadata={"help": "The ratio of warmup steps to total training steps."})
+    early_stopping_patience: int = field(default=3, metadata={
+        "help": "The number of epochs to wait for the validation loss to improve before early stopping."})
+    early_stopping_threshold: float = field(default=0.001, metadata={
+        "help": "The threshold for the validation loss to improve by in order to reset the early stopping counter."})
     logging_steps: int = field(default=20, metadata={"help": "Log every X updates steps."})
     eval_accumulation_steps: int = field(
         default=4, metadata={"help": "Number of eval steps to accumulate before performing backward pass."}
@@ -66,7 +74,7 @@ class TrainingArguments:
     # TODO: Change the default value of eval_steps to None, when this value is set to None have it infer from
     #  the number of steps when to perform an evaluation.
     eval_steps: int = field(
-        default=200,
+        default=50,
         metadata={"help": "Number of eval steps to perform before logging metrics."}
     )
     eval_with_teacher_forcing: bool = field(
@@ -111,7 +119,7 @@ class TrainingArguments:
         },
     )
     save_total_limit: Optional[int] = field(
-        default=None,
+        default=5,
         metadata={"help": "If a value is passed, will limit the total amount of checkpoints. Deletes the older "
                           "checkpoints in output_dir. Default to unlimited checkpoints."},
     )
@@ -124,7 +132,7 @@ class ModelArguments:
     """
 
     model_name_or_path: Optional[str] = field(
-        default="google/t5-v1_1-small",
+        default="google/t5-v1_1-base",
         metadata={
             "help": (
                 "The model checkpoint for weights initialization. Don't set if you want to train a model from scratch."
@@ -132,7 +140,7 @@ class ModelArguments:
         },
     )
     tokenizer_name: Optional[str] = field(
-        default="google/t5-v1_1-small",
+        default="google/t5-v1_1-base",
         metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"}
     )
     dtype: Optional[str] = field(
@@ -161,6 +169,12 @@ class DataTrainingArguments:
     dataset_name: Optional[str] = field(
         default="stsb",
         metadata={"help": "The name of the dataset to use (via the datasets library)."}
+    )
+    excluded_datasets: Optional[str] = field(
+        default='ax',
+        metadata={"help": "A comma seperated list of datasets within the selected benchmark that are to be ignored "
+                          "(if the 'all' option is selected under the 'dataset_name' flag."
+                  }
     )
     num_train_examples: Optional[int] = field(
         default=5_000_000, metadata={"help": "The number of training examples to use during training."}

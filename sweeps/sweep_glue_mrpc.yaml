@@ -1,9 +1,9 @@
 program: fine_tune_t5.py
 project: "T5 Evaluation"
-name: "T5 Evaluation -- GLUE: SST-2"
+name: "T5 Evaluation -- GLUE: mrpc"
 method: bayes
 metric:
-  name: eval/accuracy
+  name: eval/f1
   goal: maximize
 
 parameters:
@@ -11,6 +11,7 @@ parameters:
     distribution: uniform
     min: 1e-5
     max: 1e-3
+
   lr_scheduler_type:
     values: [
       "constant",
@@ -21,10 +22,10 @@ parameters:
   benchmark:
     value: 'glue'
   dataset_name:
-    value: "sst2"
+    value: "mrpc"
 
-command:
-  - accelerate
-  - launch
-  - ${program}
-  - ${args}
+  command:
+    - accelerate
+    - launch
+    - ${program}
+    - ${args}
