@@ -119,7 +119,7 @@ class TrainingArguments:
         },
     )
     save_total_limit: Optional[int] = field(
-        default=5,
+        default=None,
         metadata={"help": "If a value is passed, will limit the total amount of checkpoints. Deletes the older "
                           "checkpoints in output_dir. Default to unlimited checkpoints."},
     )

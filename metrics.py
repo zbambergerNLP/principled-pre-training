@@ -31,16 +31,14 @@ METRIC_NAME_TO_FUNC = {
 def compute_metrics(
         eval_pred: transformers.EvalPrediction,
         metric_names: typing.List[str],
-        padding_token: int = 0,
-        eos_token: int = 1,
+        tokenizer: transformers.PreTrainedTokenizer,
 ) -> typing.Dict[str, float]:
     """Compute the accuracy of the model.
 
     Args:
         eval_pred: A namedtuple containing the model predictions and labels.
         metric_names: The names of the metrics to be used for evaluation on a benchmark task.
-        padding_token: Token_id of the padding token.
-        eos_token: Token_id of the end of sentence token.
+        tokenizer: The tokenizer used to encode the inputs and labels.
 
     Returns:
         A dictionary containing the accuracy of the model.
@@ -49,32 +47,46 @@ def compute_metrics(
     predictions: np.ndarray  # Shape is [batch_size, target_sequence_length]
     labels: np.ndarray       # Shape is [batch_size, target_sequence_length]
 
-    # Convert padding tokens from -100 to the tokenizer's padding token ID (typically 0)
-    labels[labels == -100] = padding_token
+    metrics = {}
+    labels[labels == -100] = tokenizer.pad_token_id
 
-    if predictions[:, 0].max() == padding_token:  # Check if the first token in the predictions is the padding token
+    if predictions[:, 0].max() == tokenizer.pad_token_id:  # Check if the first token in the predictions is the padding token
         # Skip the first token in the predictions (i.e., the decoder start token), and add a padding token at the end
         predictions = np.concatenate(
-            [predictions[:, 1:], np.full((predictions.shape[0], 1), padding_token)],
-            axis=1)
+            [predictions[:, 1:],
+             np.full(
+                 (predictions.shape[0], 1),
+                 tokenizer.pad_token_id)
+             ],
+            axis=1,
+        )
 
-    # Flatten the predictions and labels. Ignore the padding tokens and the end of sentence tokens.
-    predictions = predictions[(labels != padding_token) & (labels != eos_token)].flatten()
-    labels = labels[(labels != padding_token) & (labels != eos_token)].flatten()
+    is_correct = np.equal(predictions, labels)
+    num_correct_per_example = is_correct.sum(axis=1)
+    ideal_num_correct_per_example = np.ones_like(num_correct_per_example) * labels.shape[1]
+    example_is_correct = np.equal(num_correct_per_example, ideal_num_correct_per_example)
+
+    predictions = predictions[(labels != tokenizer.pad_token_id) & (labels != tokenizer.eos_token_id)]
+    labels = labels[(labels != tokenizer.pad_token_type_id) & (labels != tokenizer.eos_token_id)]
 
     # Get the metrics!
-    metrics = {}
     for metric_name in metric_names:
         # Metrics from scipy return `statistic` and `pvalue`, but we are only interested in the statistic.
         if metric_name == 'pearson' or metric_name == 'spearman':
             # Get the statistic (not the pvalue)
-            metrics[metric_name] = METRIC_NAME_TO_FUNC[metric_name](labels, predictions)[0]
+            metrics[f'token_{metric_name}'] = METRIC_NAME_TO_FUNC[metric_name](labels, predictions)[0]
+            metrics[f'example_{metric_name}'] = METRIC_NAME_TO_FUNC[metric_name](
+                example_is_correct, np.ones_like(example_is_correct))[0]
         # Multiply mcc by 100 to remain consistent with the original T5 implementation:
         # https://github.com/google-research/text-to-text-transfer-transformer/blob/main/t5/data/glue_utils.py#L140
         elif metric_name == 'mcc':
-            metrics[metric_name] = METRIC_NAME_TO_FUNC[metric_name](labels, predictions) * 100
+            metrics[f'token_{metric_name}'] = METRIC_NAME_TO_FUNC[metric_name](labels, predictions) * 100
+            metrics[f'example_{metric_name}'] = METRIC_NAME_TO_FUNC[metric_name](
+                example_is_correct, np.ones_like(example_is_correct)) * 100
         else:
-            metrics[metric_name] = METRIC_NAME_TO_FUNC[metric_name](labels, predictions)
+            metrics[f'token_{metric_name}'] = METRIC_NAME_TO_FUNC[metric_name](labels, predictions)
+            metrics[f'example_{metric_name}'] = METRIC_NAME_TO_FUNC[metric_name](
+                example_is_correct, np.ones_like(example_is_correct))
     return metrics
 
 def preprocess_logits_for_metrics(

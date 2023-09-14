@@ -31,6 +31,24 @@ MCC = 'mcc'
 SPEARMAN = 'spearman'
 PEARSON = 'pearson'
 
+# Example-level metric names
+EXAMPLE_ACCURACY = 'example_accuracy'
+EXAMPLE_F1 = 'example_f1'
+EXAMPLE_PRECISION = 'example_precision'
+EXAMPLE_RECALL = 'example_recall'
+EXAMPLE_MCC = 'example_mcc'
+EXAMPLE_SPEARMAN = 'example_spearman'
+EXAMPLE_PEARSON = 'example_pearson'
+
+# Token-level metric names
+TOKEN_ACCURACY = 'token_accuracy'
+TOKEN_F1 = 'token_f1'
+TOKEN_PRECISION = 'token_precision'
+Token_RECAll = 'token_recall'
+TOKEN_MCC = 'token_mcc'
+TOKEN_SPEARMAN = 'token_spearman'
+TOKEN_PEARSON = 'token_pearson'
+
 # Text column names
 SENTENCE_1 = 'sentence1'
 SENTENCE_2 = 'sentence2'
@@ -93,7 +111,7 @@ DATASET_VALS = {
                     PREFIX: f'{SST2} {SENTENCE}: ',
                     TEXT_COLUMN_NAME: SENTENCE,
                     LABEL_COLUMN_NAME: LABEL,
-                    METRIC_TO_OPTIMIZE: ACCURACY,
+                    METRIC_TO_OPTIMIZE: EXAMPLE_ACCURACY,
                     GREATER_IS_BETTER: True,
                     METRIC_NAMES: [ACCURACY, F1, PRECISION, RECALL],
                     LABELS: {
@@ -108,7 +126,7 @@ DATASET_VALS = {
                     PREFIX: f'{COLA} {SENTENCE}: ',
                     TEXT_COLUMN_NAME: SENTENCE,
                     LABEL_COLUMN_NAME: LABEL,
-                    METRIC_TO_OPTIMIZE: MCC,
+                    METRIC_TO_OPTIMIZE: EXAMPLE_MCC,
                     GREATER_IS_BETTER: True,
                     METRIC_NAMES: [ACCURACY, F1, PRECISION, RECALL, MCC],
                     LABELS: {
@@ -124,7 +142,7 @@ DATASET_VALS = {
                     TEXT_COLUMN_NAME_1: SENTENCE_1,
                     TEXT_COLUMN_NAME_2: SENTENCE_2,
                     LABEL_COLUMN_NAME: LABEL,
-                    METRIC_TO_OPTIMIZE: ACCURACY,
+                    METRIC_TO_OPTIMIZE: EXAMPLE_ACCURACY,
                     GREATER_IS_BETTER: True,
                     METRIC_NAMES: [ACCURACY, F1, PRECISION, RECALL],
                     LABELS: {
@@ -141,7 +159,7 @@ DATASET_VALS = {
                     TEXT_COLUMN_NAME_1: PREMISE,
                     TEXT_COLUMN_NAME_2: HYPOTHESIS,
                     LABEL_COLUMN_NAME: LABEL,
-                    METRIC_TO_OPTIMIZE: ACCURACY,
+                    METRIC_TO_OPTIMIZE: EXAMPLE_ACCURACY,
                     GREATER_IS_BETTER: True,
                     METRIC_NAMES: [ACCURACY, F1, PRECISION, RECALL],
                     LABELS: {
@@ -158,7 +176,7 @@ DATASET_VALS = {
                     TEXT_COLUMN_NAME_1: QUESTION,
                     TEXT_COLUMN_NAME_2: SENTENCE,
                     LABEL_COLUMN_NAME: LABEL,
-                    METRIC_TO_OPTIMIZE: ACCURACY,
+                    METRIC_TO_OPTIMIZE: EXAMPLE_ACCURACY,
                     GREATER_IS_BETTER: True,
                     METRIC_NAMES: [ACCURACY, F1, PRECISION, RECALL],
                     LABELS: {
@@ -174,7 +192,7 @@ DATASET_VALS = {
                     TEXT_COLUMN_NAME_1: SENTENCE_1,
                     TEXT_COLUMN_NAME_2: SENTENCE_2,
                     LABEL_COLUMN_NAME: LABEL,
-                    METRIC_TO_OPTIMIZE: F1,
+                    METRIC_TO_OPTIMIZE: EXAMPLE_F1,
                     GREATER_IS_BETTER: True,
                     METRIC_NAMES: [ACCURACY, F1, PRECISION, RECALL],
                     LABELS: {
@@ -190,7 +208,7 @@ DATASET_VALS = {
                     TEXT_COLUMN_NAME_1: QUESTION_1,
                     TEXT_COLUMN_NAME_2: QUESTION_2,
                     LABEL_COLUMN_NAME: LABEL,
-                    METRIC_TO_OPTIMIZE: ACCURACY,
+                    METRIC_TO_OPTIMIZE: EXAMPLE_ACCURACY,
                     GREATER_IS_BETTER: True,
                     METRIC_NAMES: [ACCURACY, F1, PRECISION, RECALL],
                     LABELS: {
@@ -206,7 +224,7 @@ DATASET_VALS = {
                     TEXT_COLUMN_NAME_1: SENTENCE_1,
                     TEXT_COLUMN_NAME_2: SENTENCE_2,
                     LABEL_COLUMN_NAME: LABEL,
-                    METRIC_TO_OPTIMIZE: SPEARMAN,
+                    METRIC_TO_OPTIMIZE: EXAMPLE_SPEARMAN,
                     GREATER_IS_BETTER: True,
                     METRIC_NAMES: [SPEARMAN, PEARSON, ACCURACY, F1, PRECISION, RECALL],
                     LABELS: None,
@@ -218,7 +236,7 @@ DATASET_VALS = {
                     TEXT_COLUMN_NAME_1: PREMISE,
                     TEXT_COLUMN_NAME_2: HYPOTHESIS,
                     LABEL_COLUMN_NAME: LABEL,
-                    METRIC_TO_OPTIMIZE: ACCURACY,
+                    METRIC_TO_OPTIMIZE: EXAMPLE_ACCURACY,
                     GREATER_IS_BETTER: True,
                     METRIC_NAMES: [ACCURACY, F1, PRECISION, RECALL],
                     LABELS: {
@@ -235,7 +253,7 @@ DATASET_VALS = {
                     TEXT_COLUMN_NAME_1: PREMISE,
                     TEXT_COLUMN_NAME_2: HYPOTHESIS,
                     LABEL_COLUMN_NAME: LABEL,
-                    METRIC_TO_OPTIMIZE: ACCURACY,
+                    METRIC_TO_OPTIMIZE: EXAMPLE_ACCURACY,
                     GREATER_IS_BETTER: True,
                     METRIC_NAMES: [ACCURACY, F1, PRECISION, RECALL],
                     LABELS: {
@@ -252,7 +270,7 @@ DATASET_VALS = {
                     TEXT_COLUMN_NAME_1: SENTENCE_1,
                     TEXT_COLUMN_NAME_2: SENTENCE_2,
                     LABEL_COLUMN_NAME: LABEL,
-                    METRIC_TO_OPTIMIZE: ACCURACY,
+                    METRIC_TO_OPTIMIZE: EXAMPLE_ACCURACY,
                     GREATER_IS_BETTER: True,
                     METRIC_NAMES: [ACCURACY, F1, PRECISION, RECALL],
                     LABELS: {
@@ -268,7 +286,7 @@ DATASET_VALS = {
                     TEXT_COLUMN_NAME_1: PREMISE,
                     TEXT_COLUMN_NAME_2: HYPOTHESIS,
                     LABEL_COLUMN_NAME: LABEL,
-                    METRIC_TO_OPTIMIZE: ACCURACY,
+                    METRIC_TO_OPTIMIZE: EXAMPLE_ACCURACY,
                     GREATER_IS_BETTER: True,
                     METRIC_NAMES: [ACCURACY, F1, PRECISION, RECALL],
                     LABELS: {
@@ -281,7 +299,7 @@ DATASET_VALS = {
             ALL:
                 {
                     # Tokenize each dataset separately, and consider the union of all metrics.
-                    METRIC_TO_OPTIMIZE: ACCURACY,
+                    METRIC_TO_OPTIMIZE: EXAMPLE_ACCURACY,
                     GREATER_IS_BETTER: True,
                     METRIC_NAMES: [ACCURACY, F1, PRECISION, RECALL, MCC, SPEARMAN, PEARSON],
                 }
