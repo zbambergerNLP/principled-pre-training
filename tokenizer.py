@@ -54,6 +54,79 @@ def tokenize_function(
     results['labels'] = labels
     return results
 
+
+def tokenize_function_sentence_positioning(
+        examples: typing.Dict[str, typing.Any],
+        tokenizer: transformers.PreTrainedTokenizer,
+        input_column_name: str = 'sentence',
+        target_column_name: str = 'label',
+        input_max_length: int = 512,
+        target_max_length: int = 512,
+) -> typing.Dict[str, torch.Tensor]:
+    """
+    Tokenizes batches of examples for an encoder-decoder model.
+
+    Args:
+        examples: A batch in the form of a dictionary mapping, mapping column names to their respective values.
+        tokenizer: A function which converts string tokens into input_ids and other model inputs.
+        input_column_name: Name of the column within the input dictionary that contains the text which will be
+            tokenized.
+        target_column_name: Name of the column within the input dictionary that contains the labels which will be
+            tokenized.
+        input_max_length: The maximum length of the input sequence.
+        target_max_length: The maximum length of the target sequence.
+
+    Returns:
+        A dictionary containing the original mappings, as well as the mapping between model input names (e.g.,
+            `input_ids`) and model input values (e.g., the tensor corresponding to the input IDs of the model).
+    """
+    from transformers import BatchEncoding
+
+    def combine_batch_encodings(batch_encodings_list: list[BatchEncoding]) -> BatchEncoding:
+        # Initialize an empty dictionary for combined encodings
+        combined_encodings = {}
+
+        # Iterate over each BatchEncoding object
+        for encodings in batch_encodings_list:
+            for key, value in encodings.items():
+                if key not in combined_encodings:
+                    combined_encodings[key] = []
+                combined_encodings[key].extend(value)
+
+        return BatchEncoding(combined_encodings)
+
+
+    inputs = examples[input_column_name]
+    encodings = []
+    for sample in inputs:
+        encodings.append(
+            tokenizer(
+                sample,
+                padding='max_length',
+                max_length=input_max_length,
+                truncation=True,
+                return_tensors="pt",
+            )
+        )
+    encoding = combine_batch_encodings(encodings)
+    results = {'input_ids': encoding.input_ids, 'attention_mask': encoding.attention_mask}
+
+    # Labels are not preprocessed for the T5 model. model_inputs are returned as is
+    outputs = examples[target_column_name]
+    labels = tokenizer(
+        outputs,
+        padding='max_length',
+        max_length=target_max_length,
+        truncation=True,
+        return_tensors="pt",
+    )['input_ids']
+
+    # Replace the padding token with -100 to ignore it for loss computation
+    labels[labels == tokenizer.pad_token_id] = -100
+    results['labels'] = labels
+    return results
+
+
 def tokenizer_function_one_input(
         examples: typing.Dict[str, typing.Any],
         tokenizer: T5Tokenizer,

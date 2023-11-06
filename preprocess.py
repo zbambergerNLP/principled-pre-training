@@ -1,12 +1,46 @@
 import typing
-import constants
+from constants.base import BasicConstants
+from constants.disco_eval_constants import DiscoEvalConstants
+from constants.glue_constants import GlueConstants
+import constants.glue_constants as glue_constants
+import constants.disco_eval_constants as disco_eval_constants
+
+dec = DiscoEvalConstants()
+def preprocess_function_n_inputs(
+        examples: typing.Dict[str, typing.Any],
+        label_names: typing.Dict[int, str],
+        task_name: str,
+        label_column_name: str,
+) -> typing.Dict[str, typing.List[str]]:
+    """
+    Pre-processes batches of examples with two textual inputs for an encoder-decoder model.
+
+    Args:
+        examples: A batch in the form of a dictionary mapping, mapping column names to their respective values.
+        label_names: A dictionary mapping from the integer representation of the label to the string representation.
+        task_name: The name of the task (i.e. SPArxib/RST/etc.).
+        label_column_name: Name of the column within the input dictionary that contains the labels text.
+    Returns:
+        A dictionary containing the original mappings, as well as mappings to processed inputs and outputs.
+    """
+
+    outputs = [label_names[str(example)] for example in examples[label_column_name]]
+    examples.pop(label_column_name)
+    examples_values = dict(examples).values()  # takes the values for each text column of the dataset
+    transposed_values = list(zip(*examples_values))  # transposes a matrix (list of lists)
+    inputs = [[f"{dec.TEXT_COLUMN_NAMES[i]}: {sent}" for i, sent in enumerate(exmple)] for exmple in transposed_values]
+    inputs = ["\t".join(exmple) for exmple in inputs]
+    inputs = [f"{task_name}: {exmple}" for exmple in inputs]
+    result = {'processed_inputs': inputs, 'processed_outputs': outputs}
+    return result
+
 
 def preprocess_function_one_input(
         examples: typing.Dict[str, typing.Any],
         label_names: typing.Dict[int, str],
         prefix: str,
-        text_column_name: str = constants.SENTENCE,
-        label_column_name: str = constants.LABEL,
+        text_column_name: str = GlueConstants.SENTENCE,
+        label_column_name: str = BasicConstants.LABEL,
 ) -> typing.Dict[str, typing.List[str]]:
     """
     Pre-processes batches of examples with only a single textual input for an encoder-decoder model.
@@ -25,6 +59,8 @@ def preprocess_function_one_input(
     outputs = [label_names[example] for example in examples[label_column_name]]
     result = {'processed_inputs': inputs, 'processed_outputs': outputs}
     return result
+
+
 def preprocess_function_two_inputs(
         examples: typing.Dict[str, typing.Any],
         label_names: typing.Dict[int, str],
@@ -62,6 +98,7 @@ def preprocess_function_two_inputs(
     result = {'processed_inputs': inputs, 'processed_outputs': outputs}
     return result
 
+
 def create_preprocess_function_one_input(
         label_names: typing.Dict[int, str],
         prefix: str,
@@ -81,6 +118,7 @@ def create_preprocess_function_one_input(
     Returns:
         A pre-processing function for batches of examples with only a single textual input for an encoder-decoder model.
     """
+
     def preprocess_function(examples: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.List[str]]:
         return preprocess_function_one_input(
             examples=examples,
@@ -89,7 +127,9 @@ def create_preprocess_function_one_input(
             text_column_name=text_column_name,
             label_column_name=label_column_name,
         )
+
     return preprocess_function
+
 
 def create_preprocess_function_two_inputs(
         label_names: typing.Dict[int, str],
@@ -115,6 +155,7 @@ def create_preprocess_function_two_inputs(
     Returns:
         A pre-processing function for batches of examples with two textual inputs for an encoder-decoder model.
     """
+
     def preprocess_function(examples: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.List[str]]:
         return preprocess_function_two_inputs(
             examples=examples,
@@ -126,7 +167,25 @@ def create_preprocess_function_two_inputs(
             label_column_name=label_column_name,
             is_regression=is_regression,
         )
+
     return preprocess_function
+
+
+def create_preprocess_function_n_inputs(
+        label_names: typing.Dict[int, str],
+        task_name: str,
+        label_column_name,
+) -> typing.Callable[[typing.Dict[str, typing.Any]], typing.Dict[str, typing.List[str]]]:
+    def preprocess_function(examples: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.List[str]]:
+        return preprocess_function_n_inputs(
+            examples=examples,
+            label_names=label_names,
+            task_name=task_name,
+            label_column_name=label_column_name,
+        )
+
+    return preprocess_function
+
 
 def create_preprocess_function(
         dataset_info: typing.Dict[str, typing.Any],
@@ -158,30 +217,34 @@ def create_preprocess_function(
     Raises:
         RuntimeError if the dataset information is not formatted correctly.
     """
-    label_names = dataset_info[constants.LABELS]
-    label_column_name = dataset_info[constants.LABEL_COLUMN_NAME]
-    if constants.PREFIX in dataset_info.keys():
-        return create_preprocess_function_one_input(
+    label_names = dataset_info.LABELS
+    label_column_name = dataset_info.LABEL_COLUMN_NAME
+    if dataset_name in GlueConstants.TASKS:  # This refers to the GLUE and SUPERGLUE benchmarks.
+        if isinstance(dataset_info, glue_constants.TaskConfigOneInput):
+            return create_preprocess_function_one_input(
+                label_names=label_names,
+                label_column_name=label_column_name,
+                prefix=dataset_info.PREFIX,
+                text_column_name=dataset_info.TEXT_COLUMN_NAME,
+            )
+        elif isinstance(dataset_info, glue_constants.TaskConfigTwoInput):
+            return create_preprocess_function_two_inputs(
+                label_names=label_names,
+                label_column_name=label_column_name,
+                prefix_1=dataset_info.PREFIX_1,
+                prefix_2=dataset_info.PREFIX_2,
+                text_column_name_1=dataset_info.TEXT_COLUMN_NAME_1,
+                text_column_name_2=dataset_info.TEXT_COLUMN_NAME_2,
+                is_regression=(is_regression or dataset_name == 'stsb')
+            )
+        else:
+            raise RuntimeError(
+                "Unsupported prefix structure. Must contain either `prefix` for single input tasks or `prefix_1` and "
+                "`prefix_2` for two input tasks"
+            )
+    elif dataset_name in DiscoEvalConstants.TASKS:  # This refers to the DiscoEval benchmark.
+        return create_preprocess_function_n_inputs(
             label_names=label_names,
+            task_name=dataset_name,
             label_column_name=label_column_name,
-            prefix=dataset_info[constants.PREFIX],
-            text_column_name=dataset_info[constants.TEXT_COLUMN_NAME],
-        )
-    elif (
-            constants.PREFIX_1 in dataset_info.keys() and
-            constants.PREFIX_2 in dataset_info.keys()
-    ):
-        return create_preprocess_function_two_inputs(
-            label_names=label_names,
-            label_column_name=label_column_name,
-            prefix_1=dataset_info[constants.PREFIX_1],
-            prefix_2=dataset_info[constants.PREFIX_1],
-            text_column_name_1=dataset_info[constants.TEXT_COLUMN_NAME_1],
-            text_column_name_2=dataset_info[constants.TEXT_COLUMN_NAME_2],
-            is_regression=(is_regression or dataset_name == 'stsb')
-        )
-    else:
-        raise RuntimeError(
-            "Unsupported prefix structure. Must contain either `prefix` for single input tasks or `prefix_1` and "
-            "`prefix_2` for two input tasks"
         )

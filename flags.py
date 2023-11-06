@@ -1,5 +1,4 @@
 # Create flags in order to run fine_tune_bert.py and fine_tune_t5.py
-
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -74,7 +73,7 @@ class TrainingArguments:
     # TODO: Change the default value of eval_steps to None, when this value is set to None have it infer from
     #  the number of steps when to perform an evaluation.
     eval_steps: int = field(
-        default=50,
+        default=500,
         metadata={"help": "Number of eval steps to perform before logging metrics."}
     )
     eval_with_teacher_forcing: bool = field(
@@ -161,13 +160,13 @@ class DataTrainingArguments:
     """
 
     benchmark: Optional[str] = field(
-        default="glue",
+        default="OfekGlick/DiscoEval",
         metadata={
             "help": "The name of the benchmark to use. "
                     "Can be one of ['squad', 'glue', 'super_glue', 'cnn_dailymail', 'xsum']."}
     )
     dataset_name: Optional[str] = field(
-        default="stsb",
+        default="PDTB_E",
         metadata={"help": "The name of the dataset to use (via the datasets library)."}
     )
     excluded_datasets: Optional[str] = field(

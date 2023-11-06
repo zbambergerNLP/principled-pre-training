@@ -46,7 +46,6 @@ def compute_metrics(
     predictions, labels = eval_pred
     predictions: np.ndarray  # Shape is [batch_size, target_sequence_length]
     labels: np.ndarray       # Shape is [batch_size, target_sequence_length]
-
     metrics = {}
     labels[labels == -100] = tokenizer.pad_token_id
 
@@ -88,6 +87,7 @@ def compute_metrics(
             metrics[f'example_{metric_name}'] = METRIC_NAME_TO_FUNC[metric_name](
                 example_is_correct, np.ones_like(example_is_correct))
     return metrics
+
 
 def preprocess_logits_for_metrics(
         logits: torch.Tensor,  # Shape is [batch_size, target_sequence_length, vocab_size]
