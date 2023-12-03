@@ -144,7 +144,7 @@ class CorruptionTest(parameterized.TestCase):
             maximum_length=input_length,
 
         )
-        print(f'span masks are: {span_masks}')
+        # print(f'span masks are: {span_masks}')
         input_ids_sentinel = corruption_lib.create_sentinel_ids_for_t5(
             torch.as_tensor([span_masks], dtype=torch.int8),
             vocab_size=len(tokenizer),

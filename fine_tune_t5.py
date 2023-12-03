@@ -20,6 +20,8 @@ if __name__ == '__main__':
     # Parse flags
     parser = HfArgumentParser((flags.ModelArguments, flags.DataTrainingArguments, flags.TrainingArguments))
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+
+    os.environ["WANDB_API_KEY"] = '0bc4005546f2e4d5791ff50a0eeb476ee687d5c6'
     # Set the seed for reproducibility
     utils.set_seed(training_args.seed)
     GLUE = 'glue'

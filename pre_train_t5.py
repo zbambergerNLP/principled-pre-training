@@ -2,6 +2,7 @@ import os
 
 import datasets as datasets_lib
 import torch.cuda
+import tqdm
 import transformers
 import accelerate
 
@@ -13,7 +14,6 @@ import wandb
 
 
 def main():
-
     # Parse flags
     parser = transformers.HfArgumentParser(
         (flags.ModelArguments, flags.DataTrainingArguments, flags.TrainingArguments)
@@ -29,11 +29,14 @@ def main():
     accelerator.print('training_args:', training_args)
     accelerator.print('model_args:', model_args)
     accelerator.print('data_args:', data_args)
-
     accelerator.print(f'Started pre-training a {model_args.model_name_or_path} model')
+    os.environ["WANDB_API_KEY"] = '0bc4005546f2e4d5791ff50a0eeb476ee687d5c6'
+    pmi = training_args.pmi
 
     # Load the T5 model and tokenizer
-    tokenizer = transformers.T5Tokenizer.from_pretrained(model_args.tokenizer_name)
+    tokenizer = transformers.T5Tokenizer.from_pretrained(
+        model_args.tokenizer_name,
+    )
     accelerator.print(f'Loaded tokenizer {model_args.tokenizer_name}')
     model = transformers.T5ForConditionalGeneration.from_pretrained(model_args.model_name_or_path)
     accelerator.print(f'Loaded model {model_args.model_name_or_path}')
@@ -42,7 +45,7 @@ def main():
     # Initialize W&B project
     if accelerator.is_local_main_process:
         wandb.init(
-            project='T5 Evaluation',
+            project='T5 Evaluation - PMI',
             config={
                 'model_name': model_args.model_name_or_path,
                 'output_dir': training_args.output_dir,
@@ -66,7 +69,8 @@ def main():
         'Must specify both dataset_paths and dataset_names'
     )
     assert (
-        len(data_args.pre_training_dataset_paths.split(',')) == len(data_args.pre_training_dataset_names.split(','))), (
+            len(data_args.pre_training_dataset_paths.split(',')) == len(
+        data_args.pre_training_dataset_names.split(','))), (
         'Must specify the same number of dataset_paths and dataset_names'
     )
     dataset_paths = data_args.pre_training_dataset_paths.split(',')  # Passed in as a comma-separated list
@@ -75,7 +79,9 @@ def main():
     tokenized_dataset_name = f'{"_".join(dataset_paths)}_tokenized'
     tokenized_dataset_dir = data_args.tokenized_dataset_dir
     tokenized_dataset_path = os.path.join(tokenized_dataset_dir, tokenized_dataset_name)
-
+    accelerator.print("Creating PMI vocabulary")
+    with open(data_args.pmi_vocab_path) as f:
+        ngrams_vocab = set(f.read().split('\n'))
     if not os.path.exists(tokenized_dataset_dir):
         accelerator.print(f'Creating directory {tokenized_dataset_dir}')
         os.makedirs(tokenized_dataset_dir)
@@ -105,25 +111,15 @@ def main():
                 dataset = datasets_lib.load_dataset(
                     path=dataset_path,
                     split=split_name,
-                    # streaming=True,  # TODO: Fix pre-training with streaming datasets
+                    # streaming=True,
                 )
             else:
                 dataset = datasets_lib.load_dataset(
                     path=dataset_path,
                     name=dataset_name,
                     split=split_name,
-                    # streaming=True,  # TODO: Fix pre-training with streaming datasets
+                    # streaming=True,
                 )
-            # TODO: Consider removing non text columns from each dataset. Might save on memory. See example below:
-            # wiki = wiki.remove_columns([col for col in wiki.column_names if col != "text"])
-
-            # TODO: Add a flag to specify whether to save the dataset before tokenizing it. Not recommended for large
-            #  datasets.
-            # accelerator.print(
-            #     f'Loaded dataset {dataset_path}/{dataset_name} '
-            #     f'and saved to {os.path.join(tokenized_dataset_dir, dataset_path)}'
-            # )
-            # dataset.save_to_disk(os.path.join(tokenized_dataset_dir, dataset_path))
             datasets.append(dataset)
         dataset = datasets_lib.interleave_datasets(datasets)
         accelerator.print(f'Tokenizing dataset interleaved from: {dataset_paths}')
@@ -141,6 +137,7 @@ def main():
         )
         accelerator.print(f'Saving tokenized dataset to {tokenized_dataset_path}')
         tokenized_dataset.save_to_disk(tokenized_dataset_path)
+
 
     # Split the dataset into training and validation sets
     if isinstance(tokenized_dataset, datasets_lib.Dataset):
@@ -214,6 +211,7 @@ def main():
 
     accelerator.print('Training...')
 
+
     data_collator = data_collator_t5.T5DataCollator(
         tokenizer=tokenizer,
         noise_density=data_args.mlm_probability,
@@ -223,6 +221,8 @@ def main():
         pad_token_id=model.config.pad_token_id,
         decoder_start_token_id=model.config.decoder_start_token_id,
         seed=training_args.seed,
+        pmi=pmi,
+        ngrams_vocab_set=ngrams_vocab if pmi else None,
     )
 
     compute_metrics = lambda eval_pred: metrics_lib.compute_metrics(
@@ -242,7 +242,7 @@ def main():
         data_collator=data_collator,
         callbacks=[
             transformers.trainer_callback.EarlyStoppingCallback(
-                early_stopping_patience=training_args.patience)
+                early_stopping_patience=training_args.early_stopping_patience)
         ],
     )
     # TODO: Investigate why training freezes during evaluation loop when using IterableDataset.

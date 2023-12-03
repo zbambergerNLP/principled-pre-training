@@ -30,6 +30,8 @@ class T5DataCollator:
             pad_token_id: int,
             decoder_start_token_id: int,
             seed: int = 42,
+            pmi=False,
+            ngrams_vocab_set: typing.Set[str] = None,
     ):
         """Initialize a T5DataCollator instance.
 
@@ -50,6 +52,8 @@ class T5DataCollator:
         self.target_length = target_length
         self.pad_token_id = pad_token_id
         self.decoder_start_token_id = decoder_start_token_id
+        self.pmi = pmi
+        self.ngrams_vocab_set = ngrams_vocab_set
 
     def __call__(
             self,
@@ -73,7 +77,6 @@ class T5DataCollator:
                 'attention_mask': attention_masks,
             },
         )
-        # print(f'batch input IDs shape: {batch["input_ids"].shape}')
         batch_encoding = corruption_t5.corrupt_for_vanilla_t5(
             batch,
             self.tokenizer.vocab_size,
@@ -83,5 +86,9 @@ class T5DataCollator:
             self.tokenizer.eos_token_id,
             self.decoder_start_token_id,
             self.noise_density,
+            self.pmi,
+            self.ngrams_vocab_set,
+            self.tokenizer,
+
         )
         return batch_encoding

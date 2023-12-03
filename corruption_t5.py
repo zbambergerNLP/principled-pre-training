@@ -7,9 +7,13 @@ from typing import (
     List,
     Union,
     Tuple,
+    Set,
 )
-
+import string
+from transformers.data.data_collator import tolist, _torch_collate_batch
 from transformers import BatchEncoding
+import re
+import random
 
 
 def shift_tokens_right(
@@ -37,6 +41,139 @@ def shift_tokens_right(
 
     shifted_input_ids = np.where(shifted_input_ids == -100, pad_token_id, shifted_input_ids)
     return shifted_input_ids
+
+
+def merge_segments(offset, n_grams, covered_indices, whole_words, start_inds, segments_to_merge, ngrams_vocab_set):
+    possible_merges = []
+    for i in range(len(start_inds) - n_grams):
+        segment = whole_words[start_inds[i]:start_inds[i + n_grams] - 1]
+        if segment in ngrams_vocab_set:
+            possible_merges.append(list(range(offset + i, offset + i + n_grams)))
+
+    random.shuffle(possible_merges)
+    for seg_inds in possible_merges:
+        if len(set(seg_inds).intersection(covered_indices)) > 0:
+            continue
+        covered_indices.update(seg_inds)
+        segments_to_merge.append(seg_inds)
+
+
+def pmi_word_mask(input_tokens, pmi_vocab, max_predictions=512, mlm_probability=0.5):
+    """
+    Create a mask for PMI-based corruption for a sample.
+    Args:
+        input_tokens: A tensor of tokens.
+        pmi_vocab: The set of ngrams to use for PMI-based corruption.
+        max_predictions: The maximum number of tokens to mask.
+        mlm_probability: The probability of masking a token.
+    """
+    whole_words_indexes = []
+    whole_words_lists = [[]]
+    whole_words = whole_words_lists[0]
+    for (i, token) in enumerate(input_tokens):
+        if token == '</s>' or token == '<pad>':
+            whole_words_lists.append(
+                []  # to separate parts as we don't want them to be considered part of an ngram
+            )
+            whole_words = whole_words_lists[-1]
+            continue
+        # now, we mark the indices of token that start a whole word that can be masked
+        if len(whole_words_indexes) >= 1 and not token.startswith("▁") and token not in string.punctuation:
+            whole_words_indexes[-1].append(i)
+            whole_words[-1] = whole_words[-1] + token.strip("▁").lower()
+        else:
+            whole_words_indexes.append([i])
+            whole_words.append(token.strip("▁").lower())
+    offset = 0
+    covered_indices = set()
+    segments_to_merge = []
+    for whole_words in whole_words_lists:
+        if len(whole_words) == 0:
+            continue
+        added_offset = len(whole_words)
+        whole_words = ' '.join(whole_words)
+        start_inds = [0] + [m.start() + 1 for m in re.finditer(' ', whole_words)] + [len(whole_words) + 1]
+        for n_grams in range(5, 1, -1):
+            merge_segments(
+                offset,
+                n_grams,
+                covered_indices,
+                whole_words,
+                start_inds,
+                segments_to_merge,
+                pmi_vocab,
+            )
+        offset += added_offset
+    segments_to_merge.extend([i] for i in set(range(len(whole_words_indexes))).difference(covered_indices))
+
+    candidates = []
+    for seg_to_merge in segments_to_merge:
+        candidates.append(sum([whole_words_indexes[i] for i in seg_to_merge], []))
+
+    # whole_words_indexes is a list of lists of ints, each list is the
+    # indices part of the whole word to be masked, i.e. the segment to be considered for masking
+    random.shuffle(candidates)
+    candidates = sorted(candidates, reverse=True, key=lambda x: len(x))
+    num_to_predict = min(max_predictions, max(1, int(round(len(input_tokens) * mlm_probability))))
+    masked_lms = []
+
+    # aux list that index every token to the parent segment index
+    # to make sure later the entire segment is masked correctly
+    indexer = list(range(len(input_tokens)))
+    covered_indexes = set()
+
+    # list of 0/1 in the length of the input tokens, 1 means the token should be masked
+    mask_labels = [0] * len(input_tokens)
+    for index_set in candidates:
+        if len(masked_lms) >= num_to_predict:
+            break
+        # If adding a whole-word mask would exceed the maximum number of
+        # predictions, then just skip these candidates.
+        if len(covered_indexes) + len(index_set) > num_to_predict:
+            continue
+        is_any_index_covered = False
+        for index in index_set:
+            if index in covered_indexes:  # not sure how is it possible, the sets should be disjoint
+                is_any_index_covered = True
+                break
+        if is_any_index_covered:
+            continue
+        head_index = min(index_set)
+        mask_labels[head_index] = 1
+        for index in index_set:
+            covered_indexes.add(index)
+            indexer[index] = head_index
+            mask_labels[index] = 1
+
+    return mask_labels
+
+
+def pmi_noise_mask(
+        examples,
+        pmi_vocab,
+        tokenizer,
+):
+    """
+    Create a mask for PMI-based corruption.
+
+    Args:
+        examples: A BatchEncoding containing the input sequences, expected shapr [batch_size, input_length].
+        pmi_vocab: The set of ngrams to use for PMI-based corruption.
+        tokenizer: The tokenizer to use for PMI-based corruption.
+
+    Returns:
+        Returns a mask tensor (0/1) of shape [batch_size, input_length] where 1 means the token should be masked.
+    """
+    mask_labels = []
+    for e in examples['input_ids']:
+        ref_tokens = []
+        for input_id in e:
+            token = tokenizer._convert_id_to_token(input_id.item())
+            ref_tokens.append(token)
+        mask_labels_for_sample = pmi_word_mask(ref_tokens, pmi_vocab)
+        mask_labels.append(mask_labels_for_sample)
+    mask_labels = torch.tensor(mask_labels)
+    return mask_labels
 
 
 def random_spans_noise_mask(
@@ -89,7 +226,7 @@ def random_spans_noise_mask(
     num_noise_tokens = to_int(np.round(to_float(sequence_length) * noise_density))
     num_noise_tokens = np.minimum(np.maximum(num_noise_tokens, 1), sequence_length - 1)
     num_noise_spans = to_int(
-      np.round(to_float(num_noise_tokens) / mean_noise_span_length))
+        np.round(to_float(num_noise_tokens) / mean_noise_span_length))
 
     # avoid degeneracy by ensuring positive number of noise spans
     num_noise_spans = np.maximum(num_noise_spans, 1)
@@ -129,8 +266,8 @@ def random_spans_noise_mask(
 
     # Identify the indices of the beginning of masked spans.
     interleaved_span_lengths = np.reshape(
-      np.stack([nonnoise_span_lengths, noise_span_lengths], axis=1),
-      [num_noise_spans * 2])
+        np.stack([nonnoise_span_lengths, noise_span_lengths], axis=1),
+        [num_noise_spans * 2])
     span_starts = np.cumsum(interleaved_span_lengths)[:-1]
 
     span_start_indicator = np.zeros([sequence_length], dtype=np.int32)
@@ -345,6 +482,9 @@ def corrupt_for_vanilla_t5(
         eos_token_id: int,
         decoder_start_token_id: int,
         noise_density: float = 0.5,
+        pmi: bool = False,
+        ngram_vocab_set: Set[str] = None,
+        tokenizer=None,
 ) -> BatchEncoding:
     """Apply corruption to the input examples for T5, create targets, prepare all model inputs.
 
@@ -357,7 +497,9 @@ def corrupt_for_vanilla_t5(
         eos_token_id: The ID of the end of sentence token.
         decoder_start_token_id: The ID of the decoder start token.
         noise_density: The density of the noise to be applied to the input sequence.
-
+        pmi: Whether to use PMI-based corruption.
+        ngram_vocab_set: The set of ngrams to use for PMI-based corruption.
+        tokenizer: The tokenizer to use for PMI-based corruption.
     Returns:
         A dictionary containing the input and target sequences, as well as the model inputs.
     """
@@ -376,17 +518,21 @@ def corrupt_for_vanilla_t5(
 
     input_ids = torch.asarray(batch["input_ids"])
     batch_size, expandend_input_length = input_ids.shape
-    mask_indices = torch.stack(
-        [
-            torch.asarray(
-                random_spans_noise_mask(
-                    sequence_length=expandend_input_length,
-                    maximum_length=expandend_input_length,
-                    noise_density=noise_density,
-                )
-            ) for _ in range(batch_size)
-        ],
-    )
+    if pmi:
+        mask_indices = pmi_noise_mask(examples, ngram_vocab_set, tokenizer)
+    else:
+        mask_indices = torch.stack(
+            [
+                torch.asarray(
+                    random_spans_noise_mask(
+                        sequence_length=expandend_input_length,
+                        maximum_length=expandend_input_length,
+                        noise_density=noise_density,
+                    )
+                ) for _ in range(batch_size)
+            ],
+        )
+
     # Ensure that padding tokens are not masked
     is_special_token = torch.isin(
         elements=input_ids,
@@ -397,10 +543,12 @@ def corrupt_for_vanilla_t5(
         vocab_size=vocab_size,
         mask_indices=mask_indices.to(torch.int8),
     )
+
     batch["input_ids"] = filter_input_ids_for_t5(
         input_ids=input_ids,
         sentinel_ids=input_ids_sentinel,
-        vocab_size=vocab_size)[0]
+        vocab_size=vocab_size,
+    )[0]
     batch["input_ids"] = torch.functional.F.pad(
         input=batch["input_ids"],
         pad=(0, input_length - expandend_input_length),

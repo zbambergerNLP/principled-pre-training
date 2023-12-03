@@ -102,7 +102,7 @@ class TrainingArguments:
         default=42, metadata={"help": "The seed to use for reproducible training."}
     )
     deepspeed: bool = field(
-        default=True, metadata={"help": "Whether to use deepspeed for training."}
+        default=False, metadata={"help": "Whether to use deepspeed for training."}
     )
     deepspeed_config: Optional[str] = field(
         default="zero_stage2_config.json", metadata={"help": "The path to the deepspeed config file."}
@@ -121,6 +121,10 @@ class TrainingArguments:
         default=None,
         metadata={"help": "If a value is passed, will limit the total amount of checkpoints. Deletes the older "
                           "checkpoints in output_dir. Default to unlimited checkpoints."},
+    ),
+    pmi: Optional[bool] = field(
+        default=True,
+        metadata={"help": "Whether or not to use PMI-Masking"}
     )
 
 
@@ -131,7 +135,7 @@ class ModelArguments:
     """
 
     model_name_or_path: Optional[str] = field(
-        default="google/t5-v1_1-base",
+        default="google/t5-v1_1-small",
         metadata={
             "help": (
                 "The model checkpoint for weights initialization. Don't set if you want to train a model from scratch."
@@ -139,7 +143,7 @@ class ModelArguments:
         },
     )
     tokenizer_name: Optional[str] = field(
-        default="google/t5-v1_1-base",
+        default="google/t5-v1_1-small",
         metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"}
     )
     dtype: Optional[str] = field(
@@ -166,7 +170,7 @@ class DataTrainingArguments:
                     "Can be one of ['squad', 'glue', 'super_glue', 'cnn_dailymail', 'xsum']."}
     )
     dataset_name: Optional[str] = field(
-        default="PDTB_E",
+        default="SParxiv",
         metadata={"help": "The name of the dataset to use (via the datasets library)."}
     )
     excluded_datasets: Optional[str] = field(
@@ -210,7 +214,7 @@ class DataTrainingArguments:
         metadata={"help": "The directory where the tokenized datasets will be saved."},
     )
     percent_of_dataset: Optional[int] = field(
-        default=100,
+        default=2,
         metadata={
             "help": "The percentage of the dataset to use for training. Between 0 and 100. Useful for debugging."
         },
@@ -241,11 +245,11 @@ class DataTrainingArguments:
         },
     )
     pre_training_dataset_paths: Optional[str] = field(
-        default="wikipedia,bookcorpus",
+        default="bookcorpus",
         metadata={"help": "The name of the dataset to use for pre-training (via the datasets library)."}
     )
     pre_training_dataset_names: Optional[str] = field(
-        default="20220301.en,",  # Only wikipedia has a name, bookcorpus is just a path.
+        default="",  # Only wikipedia has a name, bookcorpus is just a path.
         metadata={"help": "The name of the dataset to use for pre-training (via the datasets library)."}
     )
     mlm_probability: float = field(
@@ -254,7 +258,13 @@ class DataTrainingArguments:
     mean_noise_span_length: float = field(
         default=3.0,
         metadata={"help": "Mean span length of masked tokens"},
+    ),
+    pmi_vocab_path: Optional[str] = field(
+        default=r"pmi_vocab/pmi-wiki-bc.txt",
+        metadata={"help": "The path to the PMI vocabulary, should contain a path to a text file, where each row is a "
+                          "PMI phrase"}
     )
+
 
 
 @dataclass
