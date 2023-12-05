@@ -54,6 +54,7 @@ class T5DataCollator:
         self.decoder_start_token_id = decoder_start_token_id
         self.pmi = pmi
         self.ngrams_vocab_set = ngrams_vocab_set
+        self.seed = seed
 
     def __call__(
             self,
@@ -89,6 +90,7 @@ class T5DataCollator:
             self.pmi,
             self.ngrams_vocab_set,
             self.tokenizer,
+            self.seed,
 
         )
         return batch_encoding

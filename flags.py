@@ -102,7 +102,7 @@ class TrainingArguments:
         default=42, metadata={"help": "The seed to use for reproducible training."}
     )
     deepspeed: bool = field(
-        default=False, metadata={"help": "Whether to use deepspeed for training."}
+        default=True, metadata={"help": "Whether to use deepspeed for training."}
     )
     deepspeed_config: Optional[str] = field(
         default="zero_stage2_config.json", metadata={"help": "The path to the deepspeed config file."}
@@ -214,7 +214,7 @@ class DataTrainingArguments:
         metadata={"help": "The directory where the tokenized datasets will be saved."},
     )
     percent_of_dataset: Optional[int] = field(
-        default=2,
+        default=100,
         metadata={
             "help": "The percentage of the dataset to use for training. Between 0 and 100. Useful for debugging."
         },
@@ -245,11 +245,11 @@ class DataTrainingArguments:
         },
     )
     pre_training_dataset_paths: Optional[str] = field(
-        default="bookcorpus",
+        default="wikipedia,bookcorpus",
         metadata={"help": "The name of the dataset to use for pre-training (via the datasets library)."}
     )
     pre_training_dataset_names: Optional[str] = field(
-        default="",  # Only wikipedia has a name, bookcorpus is just a path.
+        default="20220301.en,",  # Only wikipedia has a name, bookcorpus is just a path.
         metadata={"help": "The name of the dataset to use for pre-training (via the datasets library)."}
     )
     mlm_probability: float = field(

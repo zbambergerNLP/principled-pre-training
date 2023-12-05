@@ -11,7 +11,6 @@ MAX_PREDICTIONS = 'max_predictions'
 MLM_PROBABILITY = 'mlm_probability'
 TESTCASE_NAME = 'testcase_name'
 
-
 PMI_DEMO_VOCAB = {'1950 and 1951',
                   'muttering to himself',
                   'in an interview',
@@ -113,12 +112,31 @@ class PMICorruptionTest(parameterized.TestCase):
         random.seed(42)
 
     @parameterized.named_parameters(
-        *[{
-            TESTCASE_NAME: f"test_pmi_mask_word_{i}",
-            INPUT_TOKENS: demo_text_i,
+        {
+            TESTCASE_NAME: "No n-grams in PMI Vocab",
+            INPUT_TOKENS: "Ofek went to Taub.",
             MAX_PREDICTIONS: 512,
             MLM_PROBABILITY: 0.5,
-        } for i, demo_text_i in enumerate(DEMO_TEXTS)]
+        },
+        {
+            TESTCASE_NAME: "Gibberish",
+            INPUT_TOKENS: "asdvbdsasd asdvewasdf ",
+            MAX_PREDICTIONS: 512,
+            MLM_PROBABILITY: 0.5,
+        },
+        {
+            TESTCASE_NAME: "Some n-grams in PMI Vocab",
+            INPUT_TOKENS: "I have to tell everything that is happening, but what happens after that, i don't know",
+            MAX_PREDICTIONS: 512,
+            MLM_PROBABILITY: 0.5,
+        },
+        {
+            TESTCASE_NAME: "extra punctuation",
+            INPUT_TOKENS: "I want to tell you, maybe ask you? maybe yell! maybe scream & yell - then tell you.",
+            MAX_PREDICTIONS: 512,
+            MLM_PROBABILITY: 0.5,
+        },
+
     )
     def test_pmi_mask_word(self,
                            input_tokens,
@@ -140,12 +158,12 @@ class PMICorruptionTest(parameterized.TestCase):
             ref_tokens,
             PMI_DEMO_VOCAB,
             max_predictions,
-            mlm_probability,)
+            mlm_probability, )
         self.assertIsNotNone(mask_labels_for_sample)
 
     @parameterized.named_parameters(
         {
-            TESTCASE_NAME: f"test_pmi_mask_word",
+            TESTCASE_NAME: f"Test PMI Noise Mask, many sentences and a large n-gram vocab",
             EXAMPLES: DEMO_TEXTS,
             PMI_VOCAB: PMI_DEMO_VOCAB,
         },
