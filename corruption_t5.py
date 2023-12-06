@@ -83,7 +83,7 @@ def pmi_word_mask(
         pmi_vocab: Set[str],
         max_predictions=512,
         mlm_probability=0.5,
-):
+) -> List[int]:
     """
     Create a mask for PMI-based corruption for a sample.
     Initially, we map which tokens are part of the same word, and then we mask the entire word.
@@ -93,6 +93,8 @@ def pmi_word_mask(
         pmi_vocab: The set of ngrams to use for PMI-based corruption.
         max_predictions: The maximum number of tokens to mask.
         mlm_probability: The probability of masking a token.
+    Returns:
+        A list of 0/1 in the length of the input tokens, 1 means the token should be masked.
     """
     # TODO: Vectorize this function.
     whole_words_indexes = []
@@ -181,7 +183,7 @@ def pmi_noise_mask(
         examples: transformers.BatchEncoding,
         pmi_vocab: Set[str],
         tokenizer: transformers.T5Tokenizer,
-):
+) -> torch.Tensor:
     """
     Create a mask for PMI-based corruption.
 
@@ -513,7 +515,6 @@ def corrupt_for_vanilla_t5(
         pmi: bool = False,
         ngram_vocab_set: Set[str] = None,
         tokenizer=None,
-        seed: int = 42,
 ) -> BatchEncoding:
     """Apply corruption to the input examples for T5, create targets, prepare all model inputs.
 
@@ -529,7 +530,6 @@ def corrupt_for_vanilla_t5(
         pmi: Whether to use PMI-based corruption.
         ngram_vocab_set: The set of ngrams to use for PMI-based corruption.
         tokenizer: The tokenizer to use for PMI-based corruption.
-        seed: The seed to use for random number generation.
     Returns:
         A dictionary containing the input and target sequences, as well as the model inputs.
     """
@@ -545,7 +545,6 @@ def corrupt_for_vanilla_t5(
     # TODO: Fix the logic below given that the attention mask consists of a list of tensors of rank 2,
     #  and not a single tensor of rank 3.
     batch['attention_mask'] = torch.asarray(batch['attention_mask'])
-    random.seed(seed)
     input_ids = torch.asarray(batch["input_ids"])
     batch_size, expandend_input_length = input_ids.shape
     if pmi:

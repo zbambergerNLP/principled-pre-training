@@ -123,7 +123,7 @@ class TrainingArguments:
                           "checkpoints in output_dir. Default to unlimited checkpoints."},
     ),
     pmi: Optional[bool] = field(
-        default=True,
+        default=False,
         metadata={"help": "Whether or not to use PMI-Masking"}
     )
 

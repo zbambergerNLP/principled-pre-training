@@ -41,8 +41,7 @@ TOKENIZER = 'tokenizer'
 INPUT_TOKENS = 'input_tokens'
 MAX_PREDICTIONS = 'max_predictions'
 MLM_PROBABILITY = 'mlm_probability'
-TESTCASE_NAME = 'testcase_name'
-
+EXPECTED_MASK_LABELS = 'expected_mask_labels'
 PMI_DEMO_VOCAB = {'1950 and 1951',
                   'muttering to himself',
                   'in an interview',
@@ -364,33 +363,54 @@ class CorruptionTest(parameterized.TestCase):
         {
             TESTCASE_NAME: "No n-grams in PMI Vocab",
             INPUT_TOKENS: "Ofek went to Taub.",
+            EXPECTED_MASK_LABELS: [1, 1, 1, 1, 0, 0, 0, 0],
             MAX_PREDICTIONS: 512,
             MLM_PROBABILITY: 0.5,
         },
         {
             TESTCASE_NAME: "Gibberish",
-            INPUT_TOKENS: "asdvbdsasd asdvewasdf ",
+            INPUT_TOKENS: "asdvbdsasd asdvewasdf",
+            EXPECTED_MASK_LABELS: [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
             MAX_PREDICTIONS: 512,
             MLM_PROBABILITY: 0.5,
         },
         {
             TESTCASE_NAME: "Some n-grams in PMI Vocab",
             INPUT_TOKENS: "I have to tell everything that is happening, but what happens after that, i don't know",
+            EXPECTED_MASK_LABELS: [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0],
             MAX_PREDICTIONS: 512,
             MLM_PROBABILITY: 0.5,
         },
         {
             TESTCASE_NAME: "extra punctuation",
             INPUT_TOKENS: "I want to tell you, maybe ask you? maybe yell! maybe scream & yell - then tell you.",
+            EXPECTED_MASK_LABELS: [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0,
+                                   0, 1],
             MAX_PREDICTIONS: 512,
             MLM_PROBABILITY: 0.5,
+        },
+        {
+            TESTCASE_NAME: "Testing high mlm_probability",
+            INPUT_TOKENS: "butter and jelly pupil total expenditures stained glass windows",
+            EXPECTED_MASK_LABELS: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            MAX_PREDICTIONS: 512,
+            MLM_PROBABILITY: 1,
+        },
+        {
+            TESTCASE_NAME: "Testing low mlm_probability",
+            INPUT_TOKENS: "butter and jelly pupil total expenditures stained glass windows",
+            EXPECTED_MASK_LABELS: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            MAX_PREDICTIONS: 512,
+            MLM_PROBABILITY: 0,
         },
 
     )
     def test_pmi_mask_word(self,
                            input_tokens,
+                           expected_mask_labels,
                            max_predictions,
                            mlm_probability,
+                           seed=42,
                            ):
         """
         Test different use cases of the method "pmi_word_mask"
@@ -399,6 +419,7 @@ class CorruptionTest(parameterized.TestCase):
         :param mlm_probability: mlm probability to test
         :return: None
         """
+        random.seed(seed)
         input_tokens = self.tokenizer(
             input_tokens,
             return_tensors="pt",
@@ -414,8 +435,11 @@ class CorruptionTest(parameterized.TestCase):
             ref_tokens,
             PMI_DEMO_VOCAB,
             max_predictions,
-            mlm_probability, )
+            mlm_probability,
+        )
         self.assertIsNotNone(mask_labels_for_sample)
+        self.assertListEqual(mask_labels_for_sample, expected_mask_labels)
+        self.assertEquals(len(mask_labels_for_sample), len(ref_tokens))
 
     @parameterized.named_parameters(
         {
@@ -423,6 +447,7 @@ class CorruptionTest(parameterized.TestCase):
             EXAMPLES: DEMO_TEXTS,
             PMI_VOCAB: PMI_DEMO_VOCAB,
         },
+
     )
     def test_pmi_noise_mask(self,
                             examples,
