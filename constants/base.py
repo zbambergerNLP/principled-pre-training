@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 import typing
 
+T5_START_TOKEN = '</s>'
+T5_PAD_TOKEN = '<pad>'
+T5_SPACE_TOKEN = "▁"
 
 @dataclass
 class BasicConstants:
@@ -46,6 +49,3 @@ class BasicConstants:
     # Training Parameters
     STEPS = 'steps'
 
-    def __post_init__(self):
-        # Some initialization for the parent class, if needed
-        pass
