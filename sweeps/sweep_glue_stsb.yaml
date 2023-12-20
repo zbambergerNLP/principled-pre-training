@@ -24,7 +24,6 @@ parameters:
     value: "stsb"
 
 command:
-  - accelerate
-  - launch
+  - deepspeed
   - ${program}
   - ${args}

@@ -49,7 +49,7 @@ class TrainingArguments:
     num_train_epochs: int = field(
         default=50, metadata={"help": "Total number of training epochs to perform."}
     )
-    learning_rate: float = field(default=3e-4, metadata={
+    learning_rate: float = field(default=1e-3, metadata={
         "help": "The initial learning rate for the optimizer."
                 "In T5, the learning rate is set to 1e-3 for both pre-training and fine-tuning.."
     })
@@ -135,7 +135,7 @@ class ModelArguments:
     """
 
     model_name_or_path: Optional[str] = field(
-        default="google/t5-v1_1-small",
+        default="google/t5-v1_1-base",
         metadata={
             "help": (
                 "The model checkpoint for weights initialization. Don't set if you want to train a model from scratch."
@@ -143,11 +143,11 @@ class ModelArguments:
         },
     )
     tokenizer_name: Optional[str] = field(
-        default="google/t5-v1_1-small",
+        default="google/t5-v1_1-base",
         metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"}
     )
     dtype: Optional[str] = field(
-        default="float16",
+        default="bfloat16",
         metadata={
             "help": (
                 "Floating-point format in which the model weights should be initialized and trained. Choose one of"

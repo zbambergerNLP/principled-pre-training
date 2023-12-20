@@ -25,7 +25,6 @@ parameters:
     value: "qqp"
 
   command:
-    - accelerate
-    - launch
+    - deepspeed
     - ${program}
     - ${args}

@@ -24,7 +24,6 @@ parameters:
     value: "rte"
 
 command:
-  - accelerate
-  - launch
+  - deepspeed
   - ${program}
   - ${args}

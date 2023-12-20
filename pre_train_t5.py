@@ -25,12 +25,13 @@ def main():
         log_with='wandb',
     )
 
+
+    # TODO: add checkpoint
     # Initialize accelerator
     accelerator.print('training_args:', training_args)
     accelerator.print('model_args:', model_args)
     accelerator.print('data_args:', data_args)
     accelerator.print(f'Started pre-training a {model_args.model_name_or_path} model')
-    os.environ["WANDB_API_KEY"] = '0bc4005546f2e4d5791ff50a0eeb476ee687d5c6'
     pmi = training_args.pmi
 
     # Load the T5 model and tokenizer
@@ -40,12 +41,14 @@ def main():
     accelerator.print(f'Loaded tokenizer {model_args.tokenizer_name}')
     model = transformers.T5ForConditionalGeneration.from_pretrained(model_args.model_name_or_path)
     accelerator.print(f'Loaded model {model_args.model_name_or_path}')
-
+    run_name = f'{model_args.model_name_or_path} - {data_args.pre_training_dataset_names}'
+    run_name += ' - PMI' if pmi else ''
     # TODO: Define wandb run initialization as a function, and call it below (to avoid code duplication).
     # Initialize W&B project
     if accelerator.is_local_main_process:
         wandb.init(
             project='T5 Evaluation - PMI',
+            name=run_name,
             config={
                 'model_name': model_args.model_name_or_path,
                 'output_dir': training_args.output_dir,
@@ -79,9 +82,12 @@ def main():
     tokenized_dataset_name = f'{"_".join(dataset_paths)}_tokenized'
     tokenized_dataset_dir = data_args.tokenized_dataset_dir
     tokenized_dataset_path = os.path.join(tokenized_dataset_dir, tokenized_dataset_name)
-    accelerator.print("Creating PMI vocabulary")
-    with open(data_args.pmi_vocab_path) as f:
-        ngrams_vocab = set(f.read().split('\n'))
+
+    ngrams_vocab = {}
+    if pmi:
+        accelerator.print("Creating PMI vocabulary")
+        with open(data_args.pmi_vocab_path) as f:
+            ngrams_vocab = set(f.read().split('\n'))
     if not os.path.exists(tokenized_dataset_dir):
         accelerator.print(f'Creating directory {tokenized_dataset_dir}')
         os.makedirs(tokenized_dataset_dir)
@@ -175,7 +181,7 @@ def main():
     accelerator.print('Initializing trainer...')
     trainer_arguments = transformers.Seq2SeqTrainingArguments(
         # Set up directories
-        output_dir=training_args.output_dir,
+        output_dir=training_args.output_dir + str(pmi),
         logging_dir=training_args.logging_dir,
         deepspeed=training_args.deepspeed_config,
 
@@ -198,7 +204,7 @@ def main():
         save_strategy="steps",
         num_train_epochs=training_args.num_train_epochs,
         load_best_model_at_end=True,
-        metric_for_best_model='eval/loss',
+        metric_for_best_model='eval_loss',
         greater_is_better=False,
 
         # Frequency of training callbacks (logging, evaluation, checkpointing, etc.)
@@ -207,10 +213,10 @@ def main():
         eval_steps=training_args.eval_steps,
         save_steps=training_args.save_steps,
         save_total_limit=3,  # Maintain a finite number of checkpoints # TODO: Make this a flag
+        bf16=True,  # TODO: Make this a flag
     )
 
     accelerator.print('Training...')
-
 
     data_collator = data_collator_t5.T5DataCollator(
         tokenizer=tokenizer,
@@ -228,7 +234,7 @@ def main():
     compute_metrics = lambda eval_pred: metrics_lib.compute_metrics(
         eval_pred=eval_pred,
         metric_names=['accuracy'],
-        padding_token=tokenizer.pad_token_id,
+        tokenizer=tokenizer,
     )
 
     trainer = transformers.Seq2SeqTrainer(
@@ -245,7 +251,6 @@ def main():
                 early_stopping_patience=training_args.early_stopping_patience)
         ],
     )
-    # TODO: Investigate why training freezes during evaluation loop when using IterableDataset.
     trainer.train()
 
 

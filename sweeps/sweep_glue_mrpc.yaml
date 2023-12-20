@@ -25,7 +25,6 @@ parameters:
     value: "mrpc"
 
   command:
-    - accelerate
-    - launch
+    - deepspeed
     - ${program}
     - ${args}
