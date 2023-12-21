@@ -24,7 +24,6 @@ parameters:
     value: "sst2"
 
 command:
-  - accelerate
-  - launch
+  - deepspeed
   - ${program}
   - ${args}

@@ -79,18 +79,17 @@ class T5DataCollator:
             },
         )
         batch_encoding = corruption_t5.corrupt_for_vanilla_t5(
-            batch,
-            self.tokenizer.vocab_size,
-            self.input_length,
-            self.target_length,
-            self.pad_token_id,
-            self.tokenizer.eos_token_id,
-            self.decoder_start_token_id,
-            self.noise_density,
-            self.pmi,
-            self.ngrams_vocab_set,
-            self.tokenizer,
-            self.seed,
+            examples=batch,
+            vocab_size=self.tokenizer.vocab_size,
+            input_length=self.input_length,
+            target_length=self.target_length,
+            pad_token_id=self.pad_token_id,
+            eos_token_id=self.tokenizer.eos_token_id,
+            decoder_start_token_id=self.decoder_start_token_id,
+            noise_density=self.noise_density,
+            pmi=self.pmi,
+            ngram_vocab_set=self.ngrams_vocab_set,
+            tokenizer=self.tokenizer,
 
         )
         return batch_encoding

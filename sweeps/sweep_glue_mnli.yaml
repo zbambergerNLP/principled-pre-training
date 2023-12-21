@@ -25,7 +25,6 @@ parameters:
     value: "mnli"
 
   command:
-    - accelerate
-    - launch
+    - deepspeed
     - ${program}
     - ${args}

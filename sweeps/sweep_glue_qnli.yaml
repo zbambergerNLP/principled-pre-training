@@ -25,7 +25,6 @@ parameters:
     value: "qnli"
 
   command:
-    - accelerate
-    - launch
+    - deepspeed
     - ${program}
     - ${args}
