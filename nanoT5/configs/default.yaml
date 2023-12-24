@@ -2,46 +2,62 @@ defaults:
   - _self_
   - task: pt
   - local_env: default
+  - gpu_cluster: gpu_6000ada
 
 # Experiment args
 mode: 'pt'
 device: gpu
+num_gpus: 8
+num_cpus: 50
 precision: 'bf16'
 eval_only: false
 predict_only: false
 seed: 2137
 
 model:
-  klass: local_t5
+  model_implementation: local_t5
   name: 'google/t5-v1_1-base'
   overwrite:
     dropout_rate: 0.0
   add_config:
-    is_bf16: false
+    is_bf16: true
   checkpoint_path: ''
   random_init: true
-  compile: false # Pytorch 2.0
+  compile: true # Pytorch 2.0
+
+dataset:
+  path: 'c4'
+  name: 'en'
+  streaming: true
+  columns_to_remove: ['timestamp', 'url']
+  text_column: 'text'
+  buffer_size: 10_000
+  num_shards: 1_024
+  training_set:
+    num_examples: 2_210_000
+  validation_set:
+    num_examples: 365_000
 
 data:
   input_length: 512
   mlm_probability: 0.15
   mean_noise_span_length: 3.0
-  num_workers: 8
+  num_workers: 20  # Number of CPU processes to use for data preprocessing
 
 optim:
   name: adamwscale
   base_lr: 2e-2
   batch_size: 128
-  total_steps: 65536
+  total_steps: 131072  # 65536 * 2 = 131072
   epochs: -1 # If it's > 0 it overwrites total_steps
   warmup_steps: 10000
   lr_scheduler: cosine
   weight_decay: 0.0
   grad_clip: 1.0
-  grad_acc: 1
+  grad_acc: 2  # Increase this value if you get OOM errors
   final_cosine: 1e-5
 
-eval:
+evaluate:
   every_steps: 100000 # Eval once in the end
   steps: 500
 
@@ -49,10 +65,14 @@ checkpoint:
   every_steps: 100000 # Save checkpoint once in the end
 
 logging:
-  neptune: false
+  wandb: true
+  wandb_creds:
+    project: 'principled-pre-training'
+
+  neptune: true
   neptune_creds:
-    project:
-    api_token:
+    project: 'principled-pre-training/discourse'
+    api_token: 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJlMmJlM2E4ZC02OTk2LTQ0OTEtYWYyYi05YWE5ZjU2ODEwMTkifQ=='
     tags: ''
   every_steps: 100
   grad_l2: true

@@ -1,3 +1,5 @@
+import typing
+
 import torch
 import datasets
 from torch.utils.data import DataLoader
@@ -8,6 +10,8 @@ from transformers import (
     T5ForConditionalGeneration,
     AutoConfig,
 )
+import omegaconf
+import transformers
 
 from .copied_utils import (
     compute_input_and_target_lengths,
@@ -16,34 +20,87 @@ from .copied_utils import (
     DataCollatorForNI,
 )
 from .t5_model import MyT5
+from .constants import (
+    ModelImplementation,
+    TrainingPhase,
+    DatasetSplit,
+    T5TokenizerConstants,
+)
+from .logging_utils import Logger
 
+def get_model(
+        args: omegaconf.DictConfig,
+        config: transformers.AutoConfig,
+        logger: Logger,
+) -> torch.nn.Module:
+    """
+    Either create or load a T5 model for conditional generation.
 
-def get_model(args, config):
-    klass = {
-        'hf_t5': T5ForConditionalGeneration,
-        'local_t5': MyT5,
-    }[args.model.klass]
+    The T5 model we use can be either a HuggingFace T5 model or a locally implemented T5 model.
+    Furthermore, we support loading a model from a checkpoint, randomly initializing a model, or loading a model from
+    a pretrained checkpoint (e.g., the standard T5-base weights on Huggingface).
 
+    We also save the number of parameters in the model to the args.
+
+    :param args: The omegaconf configuration used to generate the model.
+    :param config: The model configuration. See `get_config` for more details.
+    :param logger: The logger. See `logging_utils.py` for more details.
+    :return: A T5 model for conditional generation.
+    """
+
+    logger.log_message('Loading model')
+    # TODO: Review the following code. We may want to customize the hydra and omegaconf code to make this cleaner.
+    #  Furthermore, we want to support more than just a T5 architecture (e.g., support DEPTH and UL2 in additional to
+    #  the basic T5 architecture).
+    model_implementation: torch.nn.Module = {
+        ModelImplementation.HUGGINGFACE_T5.value: transformers.T5ForConditionalGeneration,  # HuggingFace T5
+        ModelImplementation.LOCAL_T5.value: MyT5,  # TODO: Consider using Megatron LM for this.
+    }[args.model.model_implementation]
+
+    # Load the model from a defined checkpoint
     if args.model.checkpoint_path:
-        model = klass(config)
+        logger.log_message(f'Loading model from checkpoint: {args.model.checkpoint_path}')
+        model = model_implementation(config)
         model.load_state_dict(torch.load(args.model.checkpoint_path))
+
+    # Randomly initialize the model
     elif args.model.random_init:
-        model = klass(config)
+        logger.log_message('Randomly initializing model')
+        model = model_implementation(config)
+
+    # Load the model from a pretrained checkpoint (e.g., the standard T5-base weights on Huggingface)
     else:
-        assert klass == T5ForConditionalGeneration, 'To load HFs weights you need to use HF model'
-        model = klass.from_pretrained(
+        assert (
+            model_implementation == transformers.T5ForConditionalGeneration,
+            'To load HFs weights you need to use HF model'
+        )
+        logger.log_message(f'Loading model from pretrained: {args.model.name}')
+        model = model_implementation.from_pretrained(
             args.model.name,
             config=config,
         )
 
-    with open_dict(args):
-        args.n_all_param = sum([p.nelement() for p in model.parameters()])
-    
+    # Save the number of parameters in the model to the args
+    with omegaconf.open_dict(args):
+        args.n_all_param = sum([parameter.nelement() for parameter in model.parameters()])
+        logger.log_message(f'Number of parameters: {args.n_all_param.__format__("0,")}')
+
     return model
 
+def get_config(
+        args: omegaconf.DictConfig,
+        logger: Logger,
+) -> transformers.AutoConfig:
+    """
+    Get the model configuration, which is used to initialize the model.
 
-def get_config(args):
-    config = AutoConfig.from_pretrained(
+    :param args: The omegaconf configuration used to generate the model's configuration.
+    :param logger: The logger. See `logging_utils.py` for more details.
+    :return: The model configuration.
+    """
+    logger.log_message('Loading model config')
+
+    config = transformers.AutoConfig.from_pretrained(
         args.model.name,
     )
 
@@ -59,9 +116,19 @@ def get_config(args):
 
     return config
 
-
-def get_tokenizer(args):
-    tokenizer = AutoTokenizer.from_pretrained(
+def get_tokenizer(
+        args: omegaconf.DictConfig,
+        logger: Logger,
+) -> transformers.AutoTokenizer:
+    """
+    Get the tokenizer. This is used to tokenize the input data.
+    :param args: The omegaconf configuration used to generate the tokenizer.
+    :param logger: The logger. See `logging_utils.py` for more details.
+    :return: The tokenizer.
+    """
+    # TODO: Enable custom tokenizer
+    logger.log_message(f'Loading tokenizer')
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
         args.model.name,
         use_fast=True
     )
@@ -70,27 +137,43 @@ def get_tokenizer(args):
     return tokenizer
 
 
-def load_dataset_splits(args):
-    if args.mode == 'pt':
+def load_dataset_splits(
+        args: omegaconf.DictConfig,
+        logger: Logger,
+) -> typing.Dict[str, datasets.Dataset]:
+    """
+    Load the splits of the dataset (e.g., train, test, validation).
+
+    :param args: The omegaconf configuration used to generate the dataset splits.
+    :param logger: A logging_utils.Logger object. See `logging_utils.py` for more details.
+    :return: A dictionary of the dataset splits.
+    """
+    logger.log_message(f'Loading dataset {args.dataset.name} from {args.dataset.path}')
+
+    if args.mode == TrainingPhase.PT.value:
+
+        # TODO: Enable loading multiple datasets and interweaving them.
         dataset = datasets.load_dataset(
-            'c4',
-            'en',
-            streaming=True,
+            path=args.dataset.path,
+            name=args.dataset.name,
+            streaming=args.dataset.streaming,
         )
 
         dataset = dataset.remove_columns(
-            ['timestamp', 'url']
+            args.dataset.columns_to_remove
         )
 
+        # We want to use the validation set as the test set
         dataset_splits = {
-            'train': dataset['train'],
-            'test': dataset['validation'],
+            DatasetSplit.TRAIN.value: dataset[DatasetSplit.TRAIN.value],
+            DatasetSplit.TEST.value: dataset[DatasetSplit.VALIDATION.value],
         }
 
         assert (
-            dataset['train'].n_shards == 1024
+            dataset[DatasetSplit.TRAIN.value].n_shards == args.dataset.num_shards
         ), "We want to have many shards for efficient processing with num_workes in PyTorch dataloader"
-    elif args.mode == 'ft':
+
+    elif args.mode == TrainingPhase.FT.value:
         dataset_splits = datasets.load_dataset(
             args.data.exec_file_path,
             data_dir=args.data.data_dir,
@@ -98,14 +181,31 @@ def load_dataset_splits(args):
             max_num_instances_per_task=args.data.max_num_instances_per_task,
             max_num_instances_per_eval_task=args.data.max_num_instances_per_task
         )
+
     else:
         raise NotImplementedError
 
     return dataset_splits
 
 
-def process_dataset(dataset_splits, args, tokenizer):
-    if args.mode == 'pt':
+def process_dataset(
+        dataset_splits: typing.Dict[str, datasets.Dataset],
+        args: omegaconf.DictConfig,
+        tokenizer: transformers.AutoTokenizer,
+        logger: Logger,
+) -> typing.Dict[str, datasets.Dataset]:
+    """
+    Process the dataset splits (e.g., tokenize the inputs and outputs).
+
+    :param dataset_splits: A dictionary of the dataset splits. The keys are the split names (e.g., train, test,
+        validation) and the values are the dataset splits (i.e., a HuggingFace Dataset object).
+    :param args: The omegaconf configuration used to process the dataset splits.
+    :param tokenizer: The tokenizer used to tokenize the inputs and outputs.
+    :param logger: A logging_utils.Logger object. See `logging_utils.py` for more details.
+    :return: A dictionary of the processed dataset splits.
+    """
+    logger.log_message('Processing dataset splits')
+    if args.mode == TrainingPhase.PT.value:
         final_datasets = {}
 
         for split, dataset_split in dataset_splits.items():
@@ -123,19 +223,21 @@ def process_dataset(dataset_splits, args, tokenizer):
                 args.data.before_mask_input_length = before_mask_input_length
                 args.data.target_length = target_length
 
+            # TODO: Let users choose between simple tokenization and tokenization with example concatenation (as it
+            #  is done in the original T5 paper).
             dataset_split = dataset_split.map(
                 tokenize_function,
                 batched=True,
                 fn_kwargs={
-                    'tokenizer': tokenizer,
-                    'in_length': before_mask_input_length,
+                    T5TokenizerConstants.TOKENIZER: tokenizer,
+                    T5TokenizerConstants.IN_LENGTH: before_mask_input_length,
                 },
-                remove_columns=['text'],
+                remove_columns=[args.dataset.text_column]
             )
 
-            dataset_split = dataset_split.shuffle(buffer_size=10_000, seed=args.seed)
+            dataset_split = dataset_split.shuffle(buffer_size=args.dataset.buffer_size, seed=args.seed)
             final_datasets[split] = dataset_split
-    elif args.mode == 'ft':
+    elif args.mode == TrainingPhase.FT.value:
         final_datasets = dataset_splits
     else:
         raise NotImplementedError
@@ -143,8 +245,21 @@ def process_dataset(dataset_splits, args, tokenizer):
     return final_datasets
 
 
-def get_data_collator(tokenizer, config, args):
-    if args.mode == 'pt':
+def get_data_collator(
+        tokenizer: transformers.AutoTokenizer,
+        config: transformers.AutoConfig,
+        args: omegaconf.DictConfig,
+) -> typing.Union[DataCollatorForT5MLM, DataCollatorForNI]:
+    """
+    Get the data collator. This is used to collate the data into batches.
+
+    :param tokenizer: The tokenizer used to tokenize the inputs and outputs.
+    :param config: The model configuration. See `get_config` for more details.
+    :param args: The omegaconf configuration used to generate the data collator.
+    :param logger: The logger. See `logging_utils.py` for more details.
+    :return: The data collator.
+    """
+    if args.mode == TrainingPhase.PT.value:
         data_collator = DataCollatorForT5MLM(
             tokenizer=tokenizer,
             noise_density=args.data.mlm_probability,
@@ -153,13 +268,13 @@ def get_data_collator(tokenizer, config, args):
             target_length=args.data.target_length,
             pad_token_id=config.pad_token_id,
         )
-    elif args.mode == 'ft':
+    elif args.mode == TrainingPhase.FT.value:
         data_collator = DataCollatorForNI(
             tokenizer,
             padding="longest",
             max_source_length=args.data.max_seq_len,
             max_target_length=args.data.max_target_len,
-            label_pad_token_id=-100,
+            label_pad_token_id=T5TokenizerConstants.PAD_TOKEN_ID,
             pad_to_multiple_of=8,
             add_task_name=args.data.add_task_name,
             add_task_definition=args.data.add_task_definition,
@@ -174,22 +289,40 @@ def get_data_collator(tokenizer, config, args):
     return data_collator
 
 
-def get_dataloaders(tokenizer, config, args):
-    dataset_splits = load_dataset_splits(args)
-    dataset = process_dataset(dataset_splits=dataset_splits, args=args, tokenizer=tokenizer)
-    data_collator = get_data_collator(tokenizer=tokenizer, config=config,
-                                      args=args)
+def get_dataloaders(
+        tokenizer: transformers.AutoTokenizer,
+        config: transformers.AutoConfig,
+        args: omegaconf.DictConfig,
+        logger: Logger,
+) -> typing.Tuple[datasets.Dataset, datasets.Dataset]:
+    """
+    Create the dataloaders for the training and test splits.
 
-    is_iterable = isinstance(dataset['train'], IterableDataset)
+    :param tokenizer: The tokenizer used to tokenize the inputs and outputs.
+    :param config: The model configuration. See `get_config` for more details.
+    :param args: The omegaconf configuration used to generate the dataloaders.
+    :param logger: The logger. See `logging_utils.py` for more details.
+    :return: The dataloaders. The first element is the training dataloader and the second element is the
+        test dataloader.
+    """
+    dataset_splits = load_dataset_splits(args=args, logger=logger)
+    dataset = process_dataset(dataset_splits=dataset_splits, args=args, tokenizer=tokenizer, logger=logger)
+    data_collator = get_data_collator(tokenizer=tokenizer, config=config, args=args)
 
+    is_iterable = isinstance(dataset[DatasetSplit.TRAIN.value], IterableDataset)
+    logger.log_message(f'Is dataset iterable: {is_iterable}')
     dataloaders = {}
 
-    for split in ['train', 'test']:
+    for split in [DatasetSplit.TRAIN.value, DatasetSplit.TEST.value]:
+
+
+        # TODO: Enable dynamic batch size via HuggingFace/Accelerate
         batch_size = args.optim.batch_size // args.optim.grad_acc
 
-        shuffle = (split == 'train') and not is_iterable
+        shuffle = (split == DatasetSplit.TRAIN.value) and not is_iterable
+        logger.log_message(f'\tShuffle {split} data: {shuffle}')
 
-        if args.mode == 'ft' and split == 'train':
+        if args.mode == TrainingPhase.FT.value and split == DatasetSplit.TRAIN.value:
             assert shuffle is True
         else:
             assert shuffle is False
@@ -200,134 +333,53 @@ def get_dataloaders(tokenizer, config, args):
             collate_fn=data_collator,
             batch_size=batch_size,
             num_workers=args.data.num_workers,
+            # num_workers=args.num_cpus,
             pin_memory=True,
             drop_last=False,
         )
 
     # Add & Check args about data loaders
     with open_dict(args):
+
+        logger.log_message(f'Number of epochs: {args.optim.epochs}')
+        logger.log_message(f'Number of gradient accumulation steps: {args.optim.grad_acc}')
+
         if not is_iterable:
-            args.data.train_batches = len(dataloaders['train'])
-            args.data.test_batches = len(dataloaders['test'])
+            args.data.train_batches = len(dataloaders[DatasetSplit.TRAIN.value])
+            args.data.test_batches = len(dataloaders[DatasetSplit.TEST.value])
+
+            logger.log_message(f'Number of train batches: {args.data.train_batches}')
+            logger.log_message(f'Number of test batches: {args.data.test_batches}')
+
+            args.optim.total_steps = (
+                (args.data.train_batches // args.optim.grad_acc) * args.optim.epochs
+            )
 
         if args.optim.epochs > 0:
-            assert not is_iterable
-            args.optim.total_steps = (len(dataloaders['train']) // args.optim.grad_acc) * args.optim.epochs 
 
-        args.eval.corrected_steps = args.eval.steps
+            if is_iterable:
+                num_examples = args.dataset.training_set.num_examples
+                logger.log_message(f"Number of examples: {num_examples}")
 
-    return dataloaders['train'], dataloaders['test']
+                logger.log_message(
+                    f"Total steps: {num_examples // args.optim.grad_acc // args.optim.batch_size * args.optim.epochs}\n"
+                    f"({num_examples} // {args.optim.grad_acc} // {args.optim.batch_size}) * {args.optim.epochs}"
+                )
+                args.optim.total_steps = (
+                        (num_examples // args.optim.grad_acc // args.optim.batch_size) * args.optim.epochs
+                )
+            else:
+                args.optim.total_steps = (
+                        (len(dataloaders[DatasetSplit.TRAIN.value]) // args.optim.grad_acc) * args.optim.epochs
+                )
 
+            # Consider the number of GPU workers
+            logger.log_message(
+                f"Steps per worker: {args.optim.total_steps // args.num_gpus}\n"
+                f"{args.optim.total_steps} // {args.num_gpus}"
+            )
+            args.optim.total_steps = args.optim.total_steps // args.num_gpus
 
-def get_optimizer(model, args):
-    no_decay = ["bias", "LayerNorm", "layernorm", "layer_norm", "ln"]
+        args.evaluate.corrected_steps = args.evaluate.steps // args.num_gpus
 
-    optimizer_grouped_parameters = [
-        {
-            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
-            "weight_decay": args.optim.weight_decay,
-        },
-        {
-            "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
-            "weight_decay": 0.0,
-        },
-    ]
-
-    if args.optim.name == 'adamw':
-        from transformers import AdamW
-        optimizer = AdamW(
-            optimizer_grouped_parameters,
-            lr=args.optim.base_lr,
-        )
-    elif args.optim.name == 'adamwscale':
-        from .copied_utils import AdamWScale
-        optimizer = AdamWScale(
-            optimizer_grouped_parameters,
-            lr=args.optim.base_lr,
-        )
-    elif args.optim.name == 'adafactor':
-        from transformers import Adafactor
-        optimizer = Adafactor(
-            optimizer_grouped_parameters,
-            lr=args.optim.base_lr,
-            relative_step=False,
-        )
-    else:
-        raise NotImplementedError
-
-    return optimizer
-
-
-def get_lr_scheduler(optimizer, args, logger):
-    if args.optim.lr_scheduler == 'cosine':
-        from torch.optim.lr_scheduler import (
-            SequentialLR,
-            LinearLR,
-            CosineAnnealingLR,
-        )
-
-        scheduler1 = LinearLR(
-            optimizer,
-            start_factor=0.5,
-            end_factor=1,
-            total_iters=args.optim.warmup_steps,
-            last_epoch=-1,
-        )
-
-        scheduler2 = CosineAnnealingLR(
-            optimizer,
-            T_max=args.optim.total_steps - args.optim.warmup_steps,
-            eta_min=args.optim.final_cosine,
-        )
-
-        lr_scheduler = SequentialLR(
-            optimizer,
-            schedulers=[scheduler1, scheduler2],
-            milestones=[args.optim.warmup_steps]
-        )
-    elif args.optim.lr_scheduler == 'legacy':
-        import math
-        from torch.optim.lr_scheduler import (
-            SequentialLR,
-            LinearLR,
-            LambdaLR,
-        )
-
-        msg = "You are using T5 legacy LR Schedule, it's independent from the optim.base_lr"
-        logger.log_message(msg)
-
-        num_steps_optimizer1 = math.ceil(args.optim.total_steps * 0.9)
-        iters_left_for_optimizer2 = args.optim.total_steps - num_steps_optimizer1
-
-        scheduler1 = LambdaLR(
-            optimizer,
-            lambda step: min(
-                1e-2, 1.0 / math.sqrt(step)
-            ) / args.optim.base_lr if step else 1e-2 / args.optim.base_lr
-        )
-
-        scheduler2 = LinearLR(
-            optimizer,
-            start_factor=(
-                min(1e-2, 1.0 / math.sqrt(num_steps_optimizer1)) / args.optim.base_lr
-            ),
-            end_factor=0,
-            total_iters=iters_left_for_optimizer2,
-            last_epoch=-1,
-        )
-
-        lr_scheduler = SequentialLR(
-            optimizer,
-            schedulers=[scheduler1, scheduler2],
-            milestones=[num_steps_optimizer1]
-        )
-    elif args.optim.lr_scheduler == 'constant':
-        from transformers import get_scheduler
-        lr_scheduler = get_scheduler(
-            name=args.optim.lr_scheduler,
-            optimizer=optimizer,
-        )
-    else:
-        raise NotImplementedError
-
-    return lr_scheduler
+    return dataloaders[DatasetSplit.TRAIN.value], dataloaders[DatasetSplit.TEST.value]

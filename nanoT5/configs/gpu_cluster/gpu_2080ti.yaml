@@ -1,0 +1,5 @@
+# @package _global_
+
+device: gpu_cluster
+precision: 'no'
+
