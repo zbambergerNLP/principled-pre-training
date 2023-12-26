@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # Example usage:
-# sbatch run_pre_training_job.sh
+# sbatch run_pre_training_job_scratch_vanilla.sh
 
-#SBATCH --job-name="pre_training_vanilla_t5_job"
+#SBATCH --job-name="pre_training_PMI_t5_job"
 
 #SBATCH -N 1                         # number of minimum nodes
-#SBATCH --gres=gpu:5                 # Request n gpus
+#SBATCH --gres=gpu:13                 # Request n gpus
 #SBATCH -w plato2
 #SBATCH -p public
 #SBATCH -A cs
@@ -35,4 +35,7 @@ deepspeed pre_train_t5.py \
 --save_steps 500 \
 --num_train_epochs 3 \
 --per_device_train_batch_size 2 \
---per_device_eval_batch_size 4
+--per_device_eval_batch_size 4 \
+--pmi True \
+--learning_rate 1e-4 \
+--initialize_from_scratch True

@@ -155,6 +155,10 @@ class ModelArguments:
             )
         },
     )
+    initialize_from_scratch: bool = field(
+        default=False,
+        metadata={"help": "Whether to initialize the model from scratch."},
+    )
 
 
 @dataclass

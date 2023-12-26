@@ -1,11 +1,9 @@
 import os
-
 import datasets as datasets_lib
 import torch.cuda
-import tqdm
 import transformers
 import accelerate
-
+import numpy as np
 import flags
 import metrics as metrics_lib
 import data_collator_t5
@@ -25,25 +23,35 @@ def main():
         log_with='wandb',
     )
 
-
-    # TODO: add checkpoint
     # Initialize accelerator
     accelerator.print('training_args:', training_args)
     accelerator.print('model_args:', model_args)
     accelerator.print('data_args:', data_args)
     accelerator.print(f'Started pre-training a {model_args.model_name_or_path} model')
     pmi = training_args.pmi
-
     # Load the T5 model and tokenizer
     tokenizer = transformers.T5Tokenizer.from_pretrained(
         model_args.tokenizer_name,
     )
     accelerator.print(f'Loaded tokenizer {model_args.tokenizer_name}')
-    model = transformers.T5ForConditionalGeneration.from_pretrained(model_args.model_name_or_path)
+
+    # Set seed before initializing model.
+    transformers.set_seed(training_args.seed)
+    transformers.enable_full_determinism(training_args.seed)
+    np.random.seed(training_args.seed)
+    torch.random.manual_seed(training_args.seed)
+
+    # Load the model from scratch or from a pretrained checkpoint
+    if model_args.initialize_from_scratch:
+        config = transformers.T5Config.from_pretrained(model_args.model_name_or_path)
+        model = transformers.AutoModelForSeq2SeqLM.from_config(config)
+    else:
+        model = transformers.T5ForConditionalGeneration.from_pretrained(model_args.model_name_or_path)
     accelerator.print(f'Loaded model {model_args.model_name_or_path}')
-    run_name = f'{model_args.model_name_or_path} - {data_args.pre_training_dataset_names}'
-    run_name += ' - PMI' if pmi else ''
-    # TODO: Define wandb run initialization as a function, and call it below (to avoid code duplication).
+    pmi_str = 'PMI' if pmi else 'Vanilla'
+    initalize_from_scratch_str = 'scratch' if model_args.initialize_from_scratch else 'pretrained'
+    run_name = "_".join([model_args.model_name_or_path, pmi_str, initalize_from_scratch_str])
+    output_dir = "_".join([training_args.output_dir, pmi_str, initalize_from_scratch_str])
     # Initialize W&B project
     if accelerator.is_local_main_process:
         wandb.init(
@@ -55,7 +63,7 @@ def main():
                 'logging_dir': training_args.logging_dir,
                 'dataset_name': data_args.dataset_name,
                 'batch_size': training_args.per_device_train_batch_size,
-                'learning_rate': training_args.learning_rate,
+                'learning_rate': float(training_args.learning_rate),
                 'num_train_epochs': training_args.num_train_epochs,
                 'seed': training_args.seed,
                 'optimizer': training_args.optimizer,
@@ -101,7 +109,6 @@ def main():
         accelerator.print('Did not find tokenized dataset. Loading and tokenizing dataset...')
         datasets = []
         for dataset_path, dataset_name in zip(dataset_paths, dataset_names):
-
             # Determine the split name. This determines which portion/how many examples of the dataset to load.
             if data_args.percent_of_dataset:
                 split_name = f'train[:{data_args.percent_of_dataset}%]'
@@ -178,10 +185,11 @@ def main():
     else:
         raise RuntimeError(f'Unsupported dataset type {type(tokenized_dataset)}')
 
+
     accelerator.print('Initializing trainer...')
     trainer_arguments = transformers.Seq2SeqTrainingArguments(
         # Set up directories
-        output_dir=training_args.output_dir + str(pmi),
+        output_dir=output_dir,
         logging_dir=training_args.logging_dir,
         deepspeed=training_args.deepspeed_config,
 
@@ -189,7 +197,7 @@ def main():
         per_device_train_batch_size=training_args.per_device_train_batch_size,
         per_device_eval_batch_size=training_args.per_device_eval_batch_size,
         optim=training_args.optimizer,
-        learning_rate=training_args.learning_rate,
+        learning_rate=float(training_args.learning_rate),
         lr_scheduler_type=training_args.lr_scheduler_type,
         # TODO: Uncomment the following line when the training progress bar adapts to the batch size.
         # auto_find_batch_size=True,  # Automatically find the batch size that fits on the GPU

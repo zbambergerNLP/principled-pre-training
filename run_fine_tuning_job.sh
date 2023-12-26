@@ -19,7 +19,7 @@
 
 nvidia-smi
 accelerate launch fine_tune_t5.py \
---model_name_or_path t5-base \
+--model_name_or_path google/t5-v1_1-base \
 --dataset_name rte \
 --num_train_epochs 50 \
 --warmup_ratio 0.1 \

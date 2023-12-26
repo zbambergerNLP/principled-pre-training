@@ -57,7 +57,7 @@ if __name__ == '__main__':
                        f"lr_{training_args.learning_rate}_"
                        f"scheduler_{training_args.lr_scheduler_type}"
                        )
-    output_dir = os.path.join(training_args.output_dir, data_args.benchmark, data_args.dataset_name, experiment_name)
+    output_dir = str(os.path.join(training_args.output_dir, data_args.benchmark, data_args.dataset_name, experiment_name))
     if accelerator.is_local_main_process and not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
