@@ -1,7 +1,6 @@
-from .base import BasicConstants
-from dataclasses import dataclass
-
+from constants.base_constants import *
 import typing
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -26,7 +25,7 @@ class DiscoEvalTaskConfig:
 
 
 @dataclass
-class DiscoEvalConstants(BasicConstants):
+class DiscoEvalConstants:
     """
     A dataclass for DiscoEval constants. Inherits from BasicConstants.
     """
@@ -183,109 +182,168 @@ class DiscoEvalConstants(BasicConstants):
         self.SPARXIV_TASK = DiscoEvalTaskConfig(
             PREFIX=f'{self.SPARXIV}: ',
             TEXT_COLUMN_AMOUNT=self.SP_TEXT_COLUMNS,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS=self.SP_LABELS
         )
         self.SPROCSTORY_TASK = DiscoEvalTaskConfig(
             PREFIX=f'{self.SPROCSTORY}: ',
             TEXT_COLUMN_AMOUNT=self.SP_TEXT_COLUMNS,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS=self.SP_LABELS,
         )
         self.SPWIKI_TASK = DiscoEvalTaskConfig(
             PREFIX=f'{self.SPWIKI}: ',
             TEXT_COLUMN_AMOUNT=self.SP_TEXT_COLUMNS,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS=self.SP_LABELS,
         )
         self.BSOARXIV_TASK = DiscoEvalTaskConfig(
             PREFIX=f'{self.BSOARXIV}: ',
             TEXT_COLUMN_AMOUNT=self.BSO_TEXT_COLUMNS,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS=self.BSO_LABELS
         )
         self.BSOROCSTORY_TASK = DiscoEvalTaskConfig(
             PREFIX=f'{self.BSOROCSTORY}: ',
             TEXT_COLUMN_AMOUNT=self.BSO_TEXT_COLUMNS,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS=self.BSO_LABELS
         )
         self.BSOWIKI_TASK = DiscoEvalTaskConfig(
             PREFIX=f'{self.BSOWIKI}: ',
             TEXT_COLUMN_AMOUNT=self.BSO_TEXT_COLUMNS,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS=self.BSO_LABELS
         )
         self.DCCHAT_TASK = DiscoEvalTaskConfig(
             PREFIX=f'{self.DCCHAT}: ',
             TEXT_COLUMN_AMOUNT=self.DC_TEXT_COLUMNS,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS=self.DC_LABELS
         )
         self.DCWIKI_TASK = DiscoEvalTaskConfig(
             PREFIX=f'{self.DCWIKI}: ',
             TEXT_COLUMN_AMOUNT=self.DC_TEXT_COLUMNS,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS=self.DC_LABELS
         )
         self.RST_TASK = DiscoEvalTaskConfig(
             PREFIX=f'{self.RST}: ',
             TEXT_COLUMN_AMOUNT=self.RST_TEXT_COLUMNS,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS=self.RST_LABELS
         )
         self.PDTB_E_TASK = DiscoEvalTaskConfig(
             PREFIX=f'{self.PDTB_E}: ',
             TEXT_COLUMN_AMOUNT=self.PDTB_E_TEXT_COLUMNS,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
-            LABELS=self.PDTB_E_LABELS
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],            LABELS=self.PDTB_E_LABELS
         )
         self.PDTB_I_TASK = DiscoEvalTaskConfig(
             PREFIX=f'{self.PDTB_I}: ',
             TEXT_COLUMN_AMOUNT=self.PDTB_I_TEXT_COLUMNS,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS=self.PDTB_I_LABELS
         )
         self.SSPABS_TASK = DiscoEvalTaskConfig(
             PREFIX=f'{self.SSPABS}: ',
             TEXT_COLUMN_AMOUNT=self.SSPABS_TEXT_COLUMNS,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS=self.SSPABS_LABELS
         )
 

@@ -1,5 +1,5 @@
+from constants.base_constants import *
 from dataclasses import dataclass
-from .base import BasicConstants
 import typing
 
 
@@ -30,7 +30,7 @@ class TaskConfigTwoInput:
 
 
 @dataclass
-class GlueConstants(BasicConstants):
+class GlueConstants:
     # Label names
     NEGATIVE: str = 'negative'
     POSITIVE: str = 'positive'
@@ -105,10 +105,15 @@ class GlueConstants(BasicConstants):
             NAME=self.SST2,
             PREFIX=f'{self.SST2}: {self.SENTENCE}: ',
             TEXT_COLUMN_NAME=self.SENTENCE,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS={
                 0: self.NEGATIVE,
                 1: self.POSITIVE,
@@ -120,10 +125,16 @@ class GlueConstants(BasicConstants):
             NAME=self.COLA,
             PREFIX=f'{self.COLA}: {self.SENTENCE}: ',
             TEXT_COLUMN_NAME=self.SENTENCE,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL, self.MCC],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+                MetricConstants.MCC,
+            ],
             LABELS={
                 0: self.UNACCEPTABLE,
                 1: self.ACCEPTABLE,
@@ -137,10 +148,15 @@ class GlueConstants(BasicConstants):
             PREFIX_2=f'{self.SENTENCE_2}',
             TEXT_COLUMN_NAME_1=self.SENTENCE_1,
             TEXT_COLUMN_NAME_2=self.SENTENCE_2,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS={
                 0: self.NEGATIVE,
                 1: self.POSITIVE,
@@ -153,10 +169,15 @@ class GlueConstants(BasicConstants):
             PREFIX_2=f'{self.PREMISE}: ',
             TEXT_COLUMN_NAME_1=self.PREMISE,
             TEXT_COLUMN_NAME_2=self.HYPOTHESIS,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS={
                 2: self.CONTRADICTION,
                 0: self.ENTAILMENT,
@@ -171,10 +192,15 @@ class GlueConstants(BasicConstants):
             PREFIX_2=f'{self.SENTENCE}: ',
             TEXT_COLUMN_NAME_1=self.QUESTION,
             TEXT_COLUMN_NAME_2=self.SENTENCE,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS={
                 1: self.NOT_ENTAILMENT,
                 0: self.ENTAILMENT,
@@ -188,10 +214,15 @@ class GlueConstants(BasicConstants):
             PREFIX_2=f'{self.SENTENCE_2}: ',
             TEXT_COLUMN_NAME_1=self.SENTENCE_1,
             TEXT_COLUMN_NAME_2=self.SENTENCE_2,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_F1,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_F1,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS={
                 0: self.NOT_EQUIVALENT,
                 1: self.EQUIVALENT,
@@ -205,10 +236,15 @@ class GlueConstants(BasicConstants):
             PREFIX_2=f'{self.QUESTION_2}: ',
             TEXT_COLUMN_NAME_1=self.QUESTION_1,
             TEXT_COLUMN_NAME_2=self.QUESTION_2,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS={
                 0: self.NOT_DUPLICATE,
                 1: self.DUPLICATE,
@@ -222,10 +258,17 @@ class GlueConstants(BasicConstants):
             PREFIX_2=f'{self.SENTENCE_2}: ',
             TEXT_COLUMN_NAME_1=self.SENTENCE_1,
             TEXT_COLUMN_NAME_2=self.SENTENCE_2,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_SPEARMAN,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_SPEARMAN,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.SPEARMAN, self.PEARSON, self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.SPEARMAN,
+                MetricConstants.PEARSON,
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS=None
         )
 
@@ -235,10 +278,15 @@ class GlueConstants(BasicConstants):
             PREFIX_2=f'{self.PREMISE}: ',
             TEXT_COLUMN_NAME_1=self.PREMISE,
             TEXT_COLUMN_NAME_2=self.HYPOTHESIS,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS={
                 2: self.CONTRADICTION,
                 0: self.ENTAILMENT,
@@ -253,10 +301,15 @@ class GlueConstants(BasicConstants):
             PREFIX_2=f'{self.PREMISE}: ',
             TEXT_COLUMN_NAME_1=self.PREMISE,
             TEXT_COLUMN_NAME_2=self.HYPOTHESIS,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS={
                 2: self.CONTRADICTION,
                 0: self.ENTAILMENT,
@@ -271,10 +324,15 @@ class GlueConstants(BasicConstants):
             PREFIX_2=f'{self.SENTENCE_2}: ',
             TEXT_COLUMN_NAME_1=self.SENTENCE_1,
             TEXT_COLUMN_NAME_2=self.SENTENCE_2,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS={
                 0: self.NOT_ENTAILMENT,
                 1: self.ENTAILMENT,
@@ -288,10 +346,15 @@ class GlueConstants(BasicConstants):
             PREFIX_2=f'{self.HYPOTHESIS}: ',
             TEXT_COLUMN_NAME_1=self.PREMISE,
             TEXT_COLUMN_NAME_2=self.HYPOTHESIS,
-            LABEL_COLUMN_NAME=self.LABEL,
-            METRIC_TO_OPTIMIZE=self.EXAMPLE_ACCURACY,
+            LABEL_COLUMN_NAME=TokenizedExampleColumnNames.LABEL.value,
+            METRIC_TO_OPTIMIZE=ExampleMetricConstants.EXAMPLE_ACCURACY,
             GREATER_IS_BETTER=True,
-            METRIC_NAMES=[self.ACCURACY, self.F1, self.PRECISION, self.RECALL],
+            METRIC_NAMES=[
+                MetricConstants.ACCURACY,
+                MetricConstants.F1,
+                MetricConstants.PRECISION,
+                MetricConstants.RECALL,
+            ],
             LABELS={
                 2: self.CONTRADICTION,
                 0: self.ENTAILMENT,

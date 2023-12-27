@@ -1,9 +1,8 @@
-import typing
-from constants.base import BasicConstants
 from constants.disco_eval_constants import DiscoEvalConstants
 from constants.glue_constants import GlueConstants
 import constants.glue_constants as glue_constants
-import constants.disco_eval_constants as disco_eval_constants
+import typing
+from constants.base_constants import *
 
 dec = DiscoEvalConstants()
 def preprocess_function_n_inputs(
@@ -40,7 +39,7 @@ def preprocess_function_one_input(
         label_names: typing.Dict[int, str],
         prefix: str,
         text_column_name: str = GlueConstants.SENTENCE,
-        label_column_name: str = BasicConstants.LABEL,
+        label_column_name: str = TokenizedExampleColumnNames.LABEL.value,
 ) -> typing.Dict[str, typing.List[str]]:
     """
     Pre-processes batches of examples with only a single textual input for an encoder-decoder model.
@@ -188,7 +187,7 @@ def create_preprocess_function_n_inputs(
 
 
 def create_preprocess_function(
-        dataset_info: typing.Dict[str, typing.Any],
+        dataset_info: typing.Union[glue_constants.TaskConfigOneInput, glue_constants.TaskConfigTwoInput],
         dataset_name: str,
         is_regression: bool = False,
 ) -> typing.Callable[

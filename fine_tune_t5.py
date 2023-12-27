@@ -1,7 +1,7 @@
 import os
 import typing
 import datasets
-import constants
+from constants import base_constants, disco_eval_constants, glue_constants
 import accelerate
 import transformers
 from transformers import T5Tokenizer, T5ForConditionalGeneration, HfArgumentParser
@@ -132,8 +132,10 @@ if __name__ == '__main__':
 
     accelerator.print(f'column names are: {encoded_dataset.column_names}')
 
-    train_dataset = encoded_dataset[constants.TRAIN]  # There is only one training dataset.
-    train_dataset.set_format(type='torch', columns=constants.TOKENIZED_COLUMN_NAMES)
+    train_dataset = encoded_dataset[base_constants.SplitConstants.TRAIN]  # There is only one training dataset.
+    train_dataset.set_format(type='torch',
+                             columns=list(base_constants.TokenizedTrainingExampleConstants.TOKENIZED_COLUMN_NAMES),
+                             )
 
     eval_dataset = {}
     test_dataset = {}
@@ -142,24 +144,48 @@ if __name__ == '__main__':
         # If the dataset is mnli, there are two validation and test sets (matched and mismatched).
         # Otherwise, there is only one.
         if data_args.dataset_name == 'mnli':
-            eval_dataset[f'matched'] = encoded_dataset[f'{constants.VALIDATION}_matched']
-            eval_dataset[f'matched'].set_format(type='torch', columns=constants.TOKENIZED_COLUMN_NAMES)
-            eval_dataset[f'mismatched'] = encoded_dataset[f'{constants.VALIDATION}_mismatched']
-            eval_dataset[f'mismatched'].set_format(type='torch', columns=constants.TOKENIZED_COLUMN_NAMES)
-            test_dataset[f'matched'] = encoded_dataset[f'{constants.TEST}_matched']
-            test_dataset[f'matched'].set_format(type='torch', columns=constants.TOKENIZED_COLUMN_NAMES)
-            test_dataset[f'mismatched'] = encoded_dataset[f'{constants.TEST}_mismatched']
-            test_dataset[f'mismatched'].set_format(type='torch', columns=constants.TOKENIZED_COLUMN_NAMES)
+            eval_dataset[f'matched'] = encoded_dataset[f'{base_constants.SplitConstants.VALIDATION}_matched']
+            eval_dataset[f'matched'].set_format(
+                type='torch',
+                columns=list(base_constants.TokenizedTrainingExampleConstants.TOKENIZED_COLUMN_NAMES),
+            )
+            eval_dataset[f'mismatched'] = encoded_dataset[f'{base_constants.SplitConstants.VALIDATION}_mismatched']
+            eval_dataset[f'mismatched'].set_format(
+                type='torch',
+                columns=list(base_constants.TokenizedTrainingExampleConstants.TOKENIZED_COLUMN_NAMES),
+            )
+            test_dataset[f'matched'] = encoded_dataset[f'{base_constants.SplitConstants.TEST}_matched']
+            test_dataset[f'matched'].set_format(
+                type='torch',
+                columns=list(base_constants.TokenizedTrainingExampleConstants.TOKENIZED_COLUMN_NAMES),
+            )
+            test_dataset[f'mismatched'] = encoded_dataset[f'{base_constants.SplitConstants.TEST}_mismatched']
+            test_dataset[f'mismatched'].set_format(
+                type='torch',
+                columns=list(base_constants.TokenizedTrainingExampleConstants.TOKENIZED_COLUMN_NAMES),
+            )
         else:
-            eval_dataset = encoded_dataset[constants.VALIDATION]
-            eval_dataset.set_format(type='torch', columns=constants.TOKENIZED_COLUMN_NAMES)
-            test_dataset = encoded_dataset[constants.TEST]
-            test_dataset.set_format(type='torch', columns=constants.TOKENIZED_COLUMN_NAMES)
+            eval_dataset = encoded_dataset[base_constants.SplitConstants.VALIDATION]
+            eval_dataset.set_format(
+                type='torch',
+                columns=list(base_constants.TokenizedTrainingExampleConstants.TOKENIZED_COLUMN_NAMES),
+            )
+            test_dataset = encoded_dataset[base_constants.SplitConstants.TEST]
+            test_dataset.set_format(
+                type='torch',
+                columns=list(base_constants.TokenizedTrainingExampleConstants.TOKENIZED_COLUMN_NAMES),
+            )
     elif data_args.benchmark == DISCO_EVAL:
-        eval_dataset = encoded_dataset[constants.VALIDATION]
-        eval_dataset.set_format(type='torch', columns=constants.TOKENIZED_COLUMN_NAMES)
-        test_dataset = encoded_dataset[constants.TEST]
-        test_dataset.set_format(type='torch', columns=constants.TOKENIZED_COLUMN_NAMES)
+        eval_dataset = encoded_dataset[base_constants.SplitConstants.VALIDATION]
+        eval_dataset.set_format(
+            type='torch',
+            columns=list(base_constants.TokenizedTrainingExampleConstants.TOKENIZED_COLUMN_NAMES),
+        )
+        test_dataset = encoded_dataset[base_constants.SplitConstants.TEST]
+        test_dataset.set_format(
+            type='torch',
+            columns=list(base_constants.TokenizedTrainingExampleConstants.TOKENIZED_COLUMN_NAMES),
+        )
     # Define the training parameters
     trainer_arguments = transformers.Seq2SeqTrainingArguments(
         # Set up directories
@@ -178,9 +204,9 @@ if __name__ == '__main__':
         eval_accumulation_steps=training_args.eval_accumulation_steps,
 
         # Training strategy to adopt
-        logging_strategy=constants.STEPS,
-        evaluation_strategy=constants.STEPS,
-        save_strategy=constants.STEPS,
+        logging_strategy=base_constants.TrainingConstants.STEPS,
+        evaluation_strategy=base_constants.TrainingConstants.STEPS,
+        save_strategy=base_constants.TrainingConstants.STEPS,
         num_train_epochs=training_args.num_train_epochs,
 
         # Early stopping (only used if the dataset is not 'all')
@@ -260,14 +286,14 @@ if __name__ == '__main__':
     accelerator.print(f"Evaluating on validation set: {data_args.dataset_name}")
     test_metrics = trainer.evaluate(
         eval_dataset=eval_dataset,
-        metric_key_prefix=constants.VALIDATION,
+        metric_key_prefix=base_constants.SplitConstants.VALIDATION,
         num_beams=training_args.beam_search_num_beams,
     )
 
     accelerator.print(f"Predicting on test set: {data_args.dataset_name}")
     test_predictions = trainer.predict(
         test_dataset=test_dataset,
-        metric_key_prefix=constants.TEST,
+        metric_key_prefix=base_constants.SplitConstants.TEST,
         num_beams=training_args.beam_search_num_beams,
     )
     # TODO: Enable saving the test predictions to a file alongside the input and target sequences.

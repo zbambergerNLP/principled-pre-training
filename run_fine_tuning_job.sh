@@ -6,10 +6,10 @@
 #SBATCH --job-name="fine_tuning_job"
 
 #SBATCH -N 1                         # number of minimum nodes
-#SBATCH --gres=gpu:8                 # Request n gpus
-
-#SBATCH -p nlp
-#SBATCH -A nlp
+#SBATCH --gres=gpu:4                 # Request n gpus
+#SBATCH -w plato[1-2]
+#SBATCH -p public
+#SBATCH -A cs
 
 #SBATCH -o eval_runs/slurm_%N_%j_out.txt       # stdout goes here
 #SBATCH -e eval_runs/slurm_%N_%j_err.txt       # stderr goes here
@@ -18,8 +18,9 @@
 # To send you an email on failure, add 'SBATCH --mail-user=<your_mail>'
 
 nvidia-smi
-accelerate launch fine_tune_t5.py \
---model_name_or_path google/t5-v1_1-base \
+deepspeed fine_tune_t5.py \
+--model_name_or_path "/home/ofek.glick/ml_training/pre_training_outputsTrue/checkpoint-15000" \
+--benchmark glue \
 --dataset_name rte \
 --num_train_epochs 50 \
 --warmup_ratio 0.1 \

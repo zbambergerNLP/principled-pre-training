@@ -1,40 +1,41 @@
 import enum
-
 from dataclasses import dataclass
 import typing
 
-# class SpecialTokens(enum.Enum):
-#     """
-#     Special tokens used by transformer models
-#     """
-#     PAD = '<pad>'
-#     UNK = '<unk>'
-#     BOS = '<s>'
-#     EOS = '</s>'
-#     MASK = '<mask>'
-#     EOT = '</t>'
-#     EOL = '</l>'
-#     SEP = '</p>'
-#     SPACE = '▁'
-#
-#
-# class RawExampleColumnNames(enum.Enum):
-#     """
-#     Column names for processed examples.
-#     """
-#     IDX = 'idx'
-#     INPUTS = 'processed_inputs'
-#     OUTPUTS = 'processed_outputs'
-#
-# class TokenizedExampleColumnNames(enum.Enum):
-#     """
-#     Column names for tokenized examples.
-#     """
-#     INPUT_IDS = 'input_ids'
-#     ATTENTION_MASK = 'attention_mask'
-#     # NOTE: LABELS is used for generative tasks and LABEL is used for classification tasks.
-#     LABEL = 'label'
-#     LABELS = 'labels'
+
+class SpecialTokens(enum.Enum):
+    """
+    Special tokens used by transformer models
+    """
+    PAD = '<pad>'
+    UNK = '<unk>'
+    BOS = '<s>'
+    EOS = '</s>'
+    MASK = '<mask>'
+    EOT = '</t>'
+    EOL = '</l>'
+    SEP = '</p>'
+    SPACE = '▁'
+
+
+class RawExampleColumnNames(enum.Enum):
+    """
+    Column names for processed examples.
+    """
+    IDX = 'idx'
+    INPUTS = 'processed_inputs'
+    OUTPUTS = 'processed_outputs'
+
+
+class TokenizedExampleColumnNames(enum.Enum):
+    """
+    Column names for tokenized examples.
+    """
+    INPUT_IDS = 'input_ids'
+    ATTENTION_MASK = 'attention_mask'
+    # NOTE: LABELS is used for generative tasks and LABEL is used for classification tasks.
+    LABEL = 'label'
+    LABELS = 'labels'
 
 
 @dataclass
@@ -65,6 +66,7 @@ class TokenizedTrainingExampleConstants:
     LABEL: str = 'label'
     LABELS: str = 'labels'
 
+
 # TODO: Make this an enum
 @dataclass
 class MetricConstants:
@@ -77,6 +79,7 @@ class MetricConstants:
     SPEARMAN: str = 'spearman'
     PEARSON: str = 'pearson'
 
+
 @dataclass
 class ExampleMetricConstants(MetricConstants):
     # Example-level metric names
@@ -87,6 +90,7 @@ class ExampleMetricConstants(MetricConstants):
     EXAMPLE_MCC: str = 'example_mcc'
     EXAMPLE_SPEARMAN: str = 'example_spearman'
     EXAMPLE_PEARSON: str = 'example_pearson'
+
 
 @dataclass
 class TokenMetricConstants(MetricConstants):
@@ -99,12 +103,14 @@ class TokenMetricConstants(MetricConstants):
     TOKEN_SPEARMAN: str = 'token_spearman'
     TOKEN_PEARSON: str = 'token_pearson'
 
+
 @dataclass
 class SplitConstants:
     # Split Names
     TRAIN: str = 'train'
     VALIDATION: str = 'validation'
     TEST: str = 'test'
+
 
 @dataclass
 class TrainingConstants:
@@ -136,10 +142,10 @@ class T5ModelConstants:
 
     # T5 Model Names
     T5_SMALL = 'google/t5-v1_1-small'  # 60M parameters
-    T5_BASE = 'google/t5-v1_1-base'    # 220M parameters
+    T5_BASE = 'google/t5-v1_1-base'  # 220M parameters
     T5_LARGE = 'google/t5-v1_1-large'  # 770M parameters
-    T5_3B = 'google/t5-v1_1-3B'        # 2.8B parameters
-    T5_11B = 'google/t5-v1_1-11B'      # 11B parameters
+    T5_3B = 'google/t5-v1_1-3B'  # 2.8B parameters
+    T5_11B = 'google/t5-v1_1-11B'  # 11B parameters
 
 
 @dataclass
@@ -152,6 +158,3 @@ class OptimizerConstants:
 
 class SchedulerConstants:
     NO_DECAY: typing.Tuple[str] = ("bias", "LayerNorm", "layernorm", "layer_norm", "ln")
-
-
-
